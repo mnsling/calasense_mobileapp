@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'pages/authentication.dart';
 
 void main() => runApp(const CalaSenseApp());
 
@@ -211,7 +212,11 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                         ),
                         elevation: 0,
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const AuthenticationPage()),
+                        );
+                      },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
