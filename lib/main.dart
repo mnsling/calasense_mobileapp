@@ -27,8 +27,7 @@ class WelcomePage extends StatefulWidget {
   State<WelcomePage> createState() => _WelcomePageState();
 }
 
-class _WelcomePageState extends State<WelcomePage>
-    with TickerProviderStateMixin {
+class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin {
   // Phase 1 (entrance)
   late final AnimationController _c;
   late final Animation<Offset> _slide;
@@ -42,11 +41,11 @@ class _WelcomePageState extends State<WelcomePage>
   bool _showImage = false;
   bool _showButton = false;
 
-  // Background & Button anims
+  // Background (bouncy) & Button (fade) anims
   late final AnimationController _bgCtrl;
-  late final Animation<Offset> _bgSlide; // bouncy slide
+  late final Animation<Offset> _bgSlide;
   late final AnimationController _btnCtrl;
-  late final Animation<double> _btnFade; // fade-in
+  late final Animation<double> _btnFade;
 
   @override
   void initState() {
@@ -60,7 +59,7 @@ class _WelcomePageState extends State<WelcomePage>
     _scale = CurvedAnimation(parent: _c, curve: Curves.elasticOut);
     _c.forward();
 
-    // Background (bouncy) & Button (fade)
+    // BG & Button controllers
     _bgCtrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
     _bgSlide = Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero)
         .animate(CurvedAnimation(parent: _bgCtrl, curve: Curves.elasticOut));
@@ -68,15 +67,15 @@ class _WelcomePageState extends State<WelcomePage>
     _btnCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 450));
     _btnFade = CurvedAnimation(parent: _btnCtrl, curve: Curves.easeIn);
 
-    // Phase timing chain
+    // Phase timeline
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() {
-        _brandAlignment = const Alignment(-0.92, -0.92); // top-left
+        _brandAlignment = const Alignment(-0.92, -0.92); // move to top-left
         _isCorner = true;
       });
 
-      // Tagline after travel
+      // Tagline after move
       Future.delayed(const Duration(milliseconds: 600), () {
         if (!mounted) return;
         setState(() => _showTagline = true);
@@ -113,7 +112,10 @@ class _WelcomePageState extends State<WelcomePage>
     final nameAlign = _isCorner ? TextAlign.left : TextAlign.center;
 
     return Scaffold(
+      // Keep top safe area, disable bottom so button can touch the edge
       body: SafeArea(
+        top: true,
+        bottom: false,
         child: Stack(
           children: [
             // Background image: bouncy slide-in, shifted down a bit
@@ -121,19 +123,19 @@ class _WelcomePageState extends State<WelcomePage>
               SlideTransition(
                 position: _bgSlide,
                 child: Transform.translate(
-                  offset: const Offset(0, 220), // tweak vertical placement
+                  offset: const Offset(0, 220), // adjust vertical placement
                   child: SizedBox(
                     height: MediaQuery.of(context).size.height,
                     width: double.infinity,
                     child: Image.asset(
-                      'assets/landingbg.png', // make sure it's declared in pubspec.yaml
+                      'assets/landingbg.png',
                       fit: BoxFit.cover,
                     ),
                   ),
                 ),
               ),
 
-            // Brand content: entrance center -> glide to corner
+            // Brand content
             AnimatedAlign(
               alignment: _brandAlignment,
               duration: const Duration(milliseconds: 600),
@@ -163,7 +165,6 @@ class _WelcomePageState extends State<WelcomePage>
                               letterSpacing: -1.5,
                             ),
                           ),
-                          // Tagline fade/slide (phase 2)
                           AnimatedSlide(
                             offset: _showTagline ? Offset.zero : const Offset(0, 0.15),
                             duration: const Duration(milliseconds: 300),
@@ -193,21 +194,22 @@ class _WelcomePageState extends State<WelcomePage>
               ),
             ),
 
-            // Button: fades in after bg appears
+            // Bottom button: spans full width & touches the bottom edge
             if (_showButton)
               Align(
                 alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: FadeTransition(
-                    opacity: _btnFade,
+                child: FadeTransition(
+                  opacity: _btnFade,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 80,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                        backgroundColor: const Color(0xFF4CAF50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                        backgroundColor: const Color(0xFF4CAF50), // or Colors.black
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.zero, // square corners to flush bottom
                         ),
+                        elevation: 0,
                       ),
                       onPressed: () {},
                       child: Row(
