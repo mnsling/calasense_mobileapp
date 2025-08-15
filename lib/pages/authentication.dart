@@ -1,5 +1,7 @@
+import 'package:calasense_app/pages/navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dashboard.dart'; // adjust path if different
 
 class AuthenticationPage extends StatefulWidget {
   const AuthenticationPage({super.key});
@@ -160,7 +162,13 @@ class _AuthenticationPageState extends State<AuthenticationPage> {
                       ),
                       elevation: 0,
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      // Navigate to dashboard (replace AuthenticationPage)
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const MainNavPage()),
+                      );
+                    },
                     child: Text(
                       isLogin ? 'LOGIN' : 'SIGN UP',
                       style: GoogleFonts.poppins(
