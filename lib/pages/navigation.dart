@@ -15,8 +15,8 @@ class MainNavPage extends StatefulWidget {
 }
 
 class _MainNavPageState extends State<MainNavPage> {
-  static const Color brand = Color(0xFF2F7D32);   // deep green
-  static const Color barBg = Color(0xFFEFFAF2);   // mint bar background
+  static const Color brand = Color(0xFF2F7D32);   // deep green icons
+  static const Color barBg = Colors.white;   // mint bar background
 
   int current = 0; // selected tab
 
@@ -119,12 +119,23 @@ class _ScanFab extends StatelessWidget {
           child: FloatingActionButton(
             heroTag: 'scanFab',
             elevation: 0,
-            backgroundColor: brand,
+            backgroundColor: Colors.white, // FAB background (white)
+            shape: const CircleBorder(), // Ensures FAB is circular
             onPressed: () {
               // TODO: navigate to scan/camera page
             },
-            child: const Icon(Icons.center_focus_strong_rounded,
-                color: Colors.white, size: 28),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF2F7D32), // Your green brand color
+                shape: BoxShape.circle,
+              ),
+              padding: const EdgeInsets.all(14), // Space inside green circle
+              child: const Icon(
+                Icons.center_focus_strong_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
           ),
         ),
       ],

@@ -8,7 +8,6 @@ class LearnPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text('Learn'), automaticallyImplyLeading: false, elevation: 0),
       body: Center(child: Text('Learn', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600))),
     );
   }

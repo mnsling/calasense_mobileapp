@@ -8,7 +8,6 @@ class CollectionPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text('Collection'), automaticallyImplyLeading: false, elevation: 0),
       body: Center(child: Text('Collection', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600))),
     );
   }
