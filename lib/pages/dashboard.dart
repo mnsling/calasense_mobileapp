@@ -31,7 +31,7 @@ class DashboardPage extends StatelessWidget {
                 const SizedBox(height: 70),
                 const RecentScansCarousel(),
                 const SizedBox(height: 70),
-                const SuggestedReadsCarousel(), // if you added it already
+                const SuggestedReadsCarousel(),
                 const SizedBox(height: 70),
               ],
             ),
@@ -73,7 +73,7 @@ class DashboardHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  "Welcome to CalaScan, Detect, Learn \nand Defend Your Calamansi Plants",
+                  "Welcome to CalaSense, Detect, Learn \nand Defend Your Calamansi Plants",
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: Colors.black87,
@@ -352,12 +352,12 @@ class _SuggestedReadsCarouselState extends State<SuggestedReadsCarousel> {
               const SizedBox(height: 6),
               Text(
                 'Expand your knowledge on citrus health and disease prevention.',
-                style: t.bodyMedium?.copyWith(color: Colors.black54),
+                style: t.bodyMedium?.copyWith(color: Colors.black54, fontSize: 12),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 30),
 
         // Carousel
         SizedBox(
