@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'dashboard.dart'; // 👈 so we can reuse DashboardHeader
+import 'scans_page.dart';
 
 class CollectionPage extends StatefulWidget {
   const CollectionPage({super.key});
@@ -11,9 +12,340 @@ class CollectionPage extends StatefulWidget {
 }
 
 class _CollectionPageState extends State<CollectionPage> {
-  final TextEditingController _search = TextEditingController();
-  String _dateFilter = 'Date Scanned';
-  RangeValues _confRange = const RangeValues(0.4, 0.9);
+  final _sb = Supabase.instance.client;
+
+  final _search = TextEditingController();
+
+  bool _loading = false;
+  List<Map<String, dynamic>> _collections = [];
+  List<Map<String, dynamic>> _orphanScans = []; // scans with no folder
+
+  // Multi-select state for orphan pins
+  bool _selecting = false;
+  final Set<dynamic> _selectedPinIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAll();
+  }
+
+  // ---------------- Data ----------------
+
+  Future<void> _loadAll() async {
+    setState(() => _loading = true);
+    try {
+      // IMPORTANT: select id_uuid since that’s the PK
+      final rows = await _sb
+          .from('collections')
+          .select('id_uuid,name,created_at')  // <- include id_uuid
+          .order('created_at', ascending: false);
+      _collections = List<Map<String, dynamic>>.from(rows);
+
+      // Orphan pins (no folder)
+      final pins = await _sb
+          .from('scans')
+          .select('id,image_url,created_at')
+          .isFilter('collection_id', null)
+          .order('created_at', ascending: false)
+          .limit(200);
+
+      _orphanScans = List<Map<String, dynamic>>.from(pins);
+    } catch (e) {
+      _toast('Failed to load: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<Map<String, dynamic>> get _filteredFolders {
+    final q = _search.text.trim().toLowerCase();
+    if (q.isEmpty) return _collections;
+    return _collections.where((r) {
+      final name = (r['name'] ?? '').toString().toLowerCase();
+      return name.contains(q);
+    }).toList();
+  }
+
+  // Build PostgREST in.(...) value: quote strings (e.g., if ids are text)
+  String _inClause(List<dynamic> ids) {
+    final joined = ids.map((v) => v is String ? '"$v"' : v).join(',');
+    return '($joined)';
+  }
+
+  // ---------------- Folder CRUD ----------------
+
+  Future<void> _createFolder() async {
+    final name = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _NewFolderSheet(),
+    );
+
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty) return;
+
+    try {
+      await _sb.from('collections').insert({'name': trimmed});
+      _toast('Folder "$trimmed" created');
+      await _loadAll();
+    } catch (e) {
+      _toast('Create failed: $e');
+    }
+  }
+
+  Future<void> _renameFolder(String idUuid, String currentName) async {
+    final controller = TextEditingController(text: currentName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename folder'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => Navigator.pop(ctx, controller.text.trim()),
+          decoration: const InputDecoration(hintText: 'Folder name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
+        ],
+      ),
+    );
+
+    final trimmed = newName?.trim() ?? '';
+    if (trimmed.isEmpty || trimmed == currentName) return;
+
+    try {
+      final res = await _sb
+          .from('collections')
+          .update({'name': trimmed})
+          .eq('id_uuid', idUuid)
+          .select();
+
+      if ((res as List).isEmpty) {
+        _toast('Rename did not match any rows. Check RLS or id.');
+        return;
+      }
+
+      _toast('Renamed to "$trimmed"');
+      await _loadAll();
+    } catch (e) {
+      _toast('Rename failed: $e');
+    }
+  }
+
+  Future<void> _deleteFolder(String idUuid, String name) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Folder'),
+        content: Text('Are you sure you want to delete "$name"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      final res = await _sb.from('collections').delete().eq('id_uuid', idUuid).select();
+      if ((res as List).isEmpty) {
+        _toast('Delete did not match any rows. Check RLS or id.');
+        return;
+      }
+
+      _toast('Folder "$name" deleted');
+      await _loadAll();
+    } catch (e) {
+      _toast('Delete failed: $e');
+    }
+  }
+
+  void _openItemMenu(String idUuid, String name) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(height: 4, width: 40, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.edit_rounded),
+                title: const Text('Rename'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _renameFolder(idUuid, name);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                title: const Text('Delete'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteFolder(idUuid, name);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------- Select & More (Pins) ----------------
+
+  void _toggleSelectionMode([bool? on]) {
+    setState(() {
+      _selecting = on ?? !_selecting;
+      if (!_selecting) _selectedPinIds.clear();
+    });
+  }
+
+  void _togglePick(dynamic id) {
+    setState(() {
+      if (_selectedPinIds.contains(id)) {
+        _selectedPinIds.remove(id);
+      } else {
+        _selectedPinIds.add(id);
+      }
+    });
+  }
+
+  void _openMoreSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(height: 4, width: 40, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.drive_file_move_rounded),
+                title: const Text('Move selected to folder'),
+                enabled: _selectedPinIds.isNotEmpty,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFolderAndMove();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                title: const Text('Delete selected'),
+                enabled: _selectedPinIds.isNotEmpty,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deletePins(_selectedPinIds.toList());
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickFolderAndMove() async {
+    if (_selectedPinIds.isEmpty) return;
+
+    final chosenId = await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => _FolderPickerSheet(collections: _collections),
+    );
+
+    if (chosenId == null) return;
+
+    // Debug: confirm we really got a UUID
+    // print('chosenId => $chosenId');
+
+    final ids = _selectedPinIds.toList();
+    final inValue = '(${ids.map((e) => e is String ? '"$e"' : e).join(',')})';
+
+    try {
+      await _sb
+          .from('scans')
+          .update({'collection_id': chosenId})   // chosenId must be a real id_uuid
+          .filter('id', 'in', inValue);
+
+      _orphanScans.removeWhere((r) => ids.contains(r['id']));
+      _selectedPinIds.clear();
+      _toggleSelectionMode(false);
+      if (mounted) setState(() {});
+      _toast('Moved ${ids.length} pin${ids.length == 1 ? '' : 's'}');
+    } catch (e) {
+      _toast('Move failed: $e');
+    }
+  }
+
+
+  Future<void> _deletePins(List<dynamic> ids) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete'),
+        content: Text('Delete ${ids.length} pin${ids.length == 1 ? '' : 's'}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final inValue = _inClause(ids);
+
+    try {
+      await _sb.from('scans').delete().filter('id', 'in', inValue);
+
+      _orphanScans.removeWhere((r) => ids.contains(r['id']));
+      _selectedPinIds.clear();
+      _toggleSelectionMode(false);
+      if (mounted) setState(() {});
+      _toast('Deleted');
+    } catch (e) {
+      _toast('Delete failed: $e');
+    }
+  }
+
+  // ---------------- UI ----------------
+
+  void _toast(String m) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,12 +362,11 @@ class _CollectionPageState extends State<CollectionPage> {
         child: SafeArea(
           child: Column(
             children: [
-              /// --- Reused header from Dashboard ---
               const SizedBox(height: 30),
-              const CollectionsHeader(),
+              const _CollectionsHeader(),
               const SizedBox(height: 14),
 
-              // ------- Search + Add -------
+              // Search + Add
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: Row(
@@ -51,7 +382,7 @@ class _CollectionPageState extends State<CollectionPage> {
                           controller: _search,
                           decoration: const InputDecoration(
                             icon: Icon(Icons.search_rounded),
-                            hintText: 'Search',
+                            hintText: 'Search folders',
                             border: InputBorder.none,
                           ),
                           onChanged: (_) => setState(() {}),
@@ -62,9 +393,7 @@ class _CollectionPageState extends State<CollectionPage> {
                     Material(
                       color: const Color(0xFF2F7D32), borderRadius: BorderRadius.circular(12),
                       child: InkWell(
-                        onTap: () {
-                          // TODO: add new item flow
-                        },
+                        onTap: _createFolder,
                         borderRadius: BorderRadius.circular(12),
                         child: const SizedBox(
                           height: 48, width: 48,
@@ -77,60 +406,137 @@ class _CollectionPageState extends State<CollectionPage> {
               ),
               const SizedBox(height: 10),
 
-              // ------- Filter chips -------
+              // Select & More
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: Row(
                   children: [
-                    _ChipButton(
-                      label: _dateFilter,
-                      onTap: () async {
-                        final picked = await showDateRangePicker(
-                          context: context,
-                          firstDate: DateTime(2023),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            _dateFilter =
-                            '${picked.start.month}/${picked.start.day}/${picked.start.year} - '
-                                '${picked.end.month}/${picked.end.day}/${picked.end.year}';
-                          });
-                        }
-                      },
+                    _ActionChip(
+                      label: _selecting ? 'Cancel' : 'Select',
+                      icon: _selecting ? Icons.close_rounded : Icons.check_circle_outline_rounded,
+                      onTap: () => _toggleSelectionMode(),
                     ),
                     const SizedBox(width: 10),
-                    _ChipButton(
-                      label: 'Confidence Range',
-                      onTap: () async {
-                        await showModalBottomSheet(
-                          context: context,
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                          ),
-                          builder: (_) => _ConfidenceSheet(
-                            values: _confRange,
-                            onChanged: (r) => setState(() => _confRange = r),
-                          ),
-                        );
-                      },
+                    Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        onTap: _openMoreSheet,
+                        borderRadius: BorderRadius.circular(14),
+                        child: const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: Icon(Icons.more_horiz_rounded, size: 22, color: Colors.black87),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
+
               const SizedBox(height: 14),
 
-              // ------- Placeholder grid -------
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: GridView.builder(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: .9,
-                    ),
-                    itemCount: 4, // just 4 placeholders for now
-                    itemBuilder: (_, i) => const _PhotoPlaceholderCard(),
+                child: RefreshIndicator(
+                  onRefresh: _loadAll,
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: [
+                      // Folders
+                      if (_filteredFolders.isNotEmpty) ...[
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: const EdgeInsets.only(bottom: 8),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: .95,
+                          ),
+                          itemCount: _filteredFolders.length,
+                          itemBuilder: (_, i) {
+                            final folder = _filteredFolders[i];
+                            final idUuid = folder['id_uuid'] as String; // UUID
+                            final name = (folder['name'] ?? '').toString();
+                            final createdAt = folder['created_at']?.toString();
+
+                            return _FolderCard(
+                              name: name,
+                              createdAt: createdAt,
+                              onTap: () async {
+                                final changed = await Navigator.push<bool>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ScansPage(
+                                      collectionId: idUuid,
+                                      collectionName: name,
+                                    ),
+                                  ),
+                                );
+                                if (changed == true) _loadAll();
+                              },
+                              onMenu: () => _openItemMenu(idUuid, name),
+                              onLongPress: () => _openItemMenu(idUuid, name),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // Orphan pins
+                      if (_orphanScans.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
+                          child: Text(
+                            'Pins',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF2F7D32),
+                            ),
+                          ),
+                        ),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1,
+                          ),
+                          itemCount: _orphanScans.length,
+                          itemBuilder: (_, i) {
+                            final row = _orphanScans[i];
+                            final id = row['id'];
+                            final url = (row['image_url'] ?? '').toString();
+                            final picked = _selectedPinIds.contains(id);
+
+                            return GestureDetector(
+                              onTap: _selecting ? () => _togglePick(id) : null,
+                              onLongPress: () => _toggleSelectionMode(true),
+                              child: Stack(
+                                children: [
+                                  _PinCard(url: url),
+                                  if (_selecting)
+                                    Positioned(
+                                      top: 8, left: 8,
+                                      child: _SelectDot(checked: picked),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      if (_filteredFolders.isEmpty && _orphanScans.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 120),
+                          child: Center(
+                            child: Text(
+                              'No folders or pins yet.\nTap + to create a folder.',
+                              textAlign: TextAlign.center,
+                              style: t.titleMedium?.copyWith(color: Colors.black54),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -142,9 +548,10 @@ class _CollectionPageState extends State<CollectionPage> {
   }
 }
 
-/// Header only
-class CollectionsHeader extends StatelessWidget {
-  const CollectionsHeader({super.key});
+// ---------------- Small widgets ----------------
+
+class _CollectionsHeader extends StatelessWidget {
+  const _CollectionsHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +560,6 @@ class CollectionsHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left texts
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -161,35 +567,20 @@ class CollectionsHeader extends StatelessWidget {
                 Text(
                   "Your Collections!",
                   style: GoogleFonts.poppins(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.5,
-                    color: const Color(0xFF2F7D32), // brand green
+                    fontSize: 30, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: const Color(0xFF2F7D32),
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  "A gallery of your scanned calamansi leaves, \nready for review and insights.",
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.black87,
-                    height: 1.35,
-                  ),
+                  "Organize your scanned calamansi leaves\ninto folders for easier review.",
+                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.black87, height: 1.35),
                 ),
               ],
             ),
           ),
-
-          // Right logo in circle
           SizedBox(
-            width: 54,
-            height: 54,
-            child: ClipOval(
-              child: Image.asset(
-                'assets/logo.png',
-                fit: BoxFit.cover,
-              ),
-            ),
+            width: 54, height: 54,
+            child: ClipOval(child: Image.asset('assets/logo.png', fit: BoxFit.cover)),
           ),
         ],
       ),
@@ -197,12 +588,11 @@ class CollectionsHeader extends StatelessWidget {
   }
 }
 
-/// ----------------- Small widgets -----------------
-
-class _ChipButton extends StatelessWidget {
+class _ActionChip extends StatelessWidget {
   final String label;
+  final IconData icon;
   final VoidCallback onTap;
-  const _ChipButton({required this.label, required this.onTap});
+  const _ActionChip({required this.label, required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -215,9 +605,8 @@ class _ChipButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(icon, size: 18), const SizedBox(width: 6),
               Text(label, style: GoogleFonts.poppins(fontSize: 12, color: Colors.black87)),
-              const SizedBox(width: 6),
-              const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
             ],
           ),
         ),
@@ -226,63 +615,229 @@ class _ChipButton extends StatelessWidget {
   }
 }
 
-class _PhotoPlaceholderCard extends StatelessWidget {
-  const _PhotoPlaceholderCard();
+class _SelectDot extends StatelessWidget {
+  final bool checked;
+  const _SelectDot({required this.checked});
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 24, width: 24,
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 10, offset: const Offset(0, 4))],
+        color: checked ? const Color(0xFF2F7D32) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black26),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.1), blurRadius: 6)],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Center(
-        child: Icon(Icons.image_outlined, size: 50, color: Colors.black26),
+      child: Icon(checked ? Icons.check : Icons.circle_outlined, size: 16, color: checked ? Colors.white : Colors.black45),
+    );
+  }
+}
+
+class _FolderCard extends StatelessWidget {
+  final String name;
+  final String? createdAt;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onMenu;
+
+  const _FolderCard({
+    required this.name,
+    this.createdAt,
+    this.onTap,
+    this.onLongPress,
+    this.onMenu,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    DateTime? dt;
+    if (createdAt != null) dt = DateTime.tryParse(createdAt!)?.toLocal();
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      elevation: 0,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.folder_rounded, size: 56, color: Color(0xFF2F7D32)),
+                    const SizedBox(height: 10),
+                    Text(
+                      name,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    if (dt != null) ...[
+                      const SizedBox(height: 6),
+                      Text('${dt.month}/${dt.day}/${dt.year}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (onMenu != null)
+              Positioned(
+                top: 4, right: 4,
+                child: Material(
+                  color: Colors.white, shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onMenu,
+                    child: const SizedBox(height: 34, width: 34, child: Icon(Icons.more_vert_rounded, size: 20)),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Bottom sheet for confidence range
-class _ConfidenceSheet extends StatefulWidget {
-  final RangeValues values;
-  final ValueChanged<RangeValues> onChanged;
-  const _ConfidenceSheet({required this.values, required this.onChanged});
-
-  @override
-  State<_ConfidenceSheet> createState() => _ConfidenceSheetState();
-}
-
-class _ConfidenceSheetState extends State<_ConfidenceSheet> {
-  late RangeValues _values = widget.values;
+class _PinCard extends StatelessWidget {
+  final String url;
+  const _PinCard({required this.url});
 
   @override
   Widget build(BuildContext context) {
-    final t = GoogleFonts.poppinsTextTheme();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        color: Colors.white,
+        child: url.isEmpty
+            ? const Center(child: Icon(Icons.broken_image_outlined, color: Colors.black26, size: 40))
+            : Image.network(
+          url,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (_, __, ___) => const Center(
+            child: Icon(Icons.broken_image_outlined, color: Colors.black26, size: 40),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NewFolderSheet extends StatefulWidget {
+  @override
+  State<_NewFolderSheet> createState() => _NewFolderSheetState();
+}
+
+class _NewFolderSheetState extends State<_NewFolderSheet> {
+  final _controller = TextEditingController();
+  bool _creating = false;
+
+  void _submit() {
+    final name = _controller.text.trim();
+    if (name.isEmpty || _creating) return;
+    setState(() => _creating = true);
+    Navigator.of(context).pop(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(height: 4, width: 40, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
-          const SizedBox(height: 16),
-          Text('Confidence Range', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          Text('${(_values.start * 100).toStringAsFixed(0)}%  –  ${(_values.end * 100).toStringAsFixed(0)}%',
-              style: t.bodyMedium?.copyWith(color: Colors.black54)),
-          RangeSlider(
-            values: _values, min: 0, max: 1, divisions: 20,
-            activeColor: const Color(0xFF2F7D32),
-            onChanged: (v) => setState(() => _values = v),
-          ),
-          const SizedBox(height: 6),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2F7D32)),
-            onPressed: () { widget.onChanged(_values); Navigator.pop(context); },
-            child: const Text('Apply'),
-          ),
-        ],
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(height: 4, width: 42, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 20),
+            Text('New Folder', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                hintText: 'Folder name',
+                filled: true,
+                fillColor: const Color(0xFFF6F7F6),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.black12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                icon: _creating
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.create_new_folder_outlined),
+                label: Text(_creating ? 'Creating...' : 'Create'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2F7D32),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: _submit,
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FolderPickerSheet extends StatelessWidget {
+  final List<Map<String, dynamic>> collections;
+  const _FolderPickerSheet({required this.collections});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.5,
+      minChildSize: 0.35,
+      maxChildSize: 0.9,
+      builder: (_, controller) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        child: Column(
+          children: [
+            Container(height: 4, width: 42, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 10),
+            Text('Move to folder', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.builder(
+                controller: controller,
+                itemCount: collections.length,
+                itemBuilder: (_, i) {
+                  final row = collections[i];
+                  return ListTile(
+                    leading: const Icon(Icons.folder_rounded, color: Color(0xFF2F7D32)),
+                    title: Text(row['name'] ?? ''),
+                    // IMPORTANT: return the UUID exactly as stored
+                    onTap: () => Navigator.pop(context, row['id_uuid']),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

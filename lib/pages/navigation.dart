@@ -4,8 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 // import your tab pages
 import 'dashboard.dart';   // Home
 import 'collection.dart';  // Collection
-import 'learn.dart';       // Learn
-import 'profile.dart';     // Profile
+import 'scan.dart';        // Scan
 
 class MainNavPage extends StatefulWidget {
   const MainNavPage({super.key});
@@ -15,17 +14,14 @@ class MainNavPage extends StatefulWidget {
 }
 
 class _MainNavPageState extends State<MainNavPage> {
-  static const Color brand = Color(0xFF2F7D32);   // deep green icons
-  static const Color barBg = Colors.white;   // mint bar background
+  static const Color brand = Color(0xFF2F7D32);
+  static const Color barBg = Colors.white;
 
-  int current = 0; // selected tab
+  int current = 0;
 
-  // Keep pages alive while switching
   final _pages = const [
     DashboardPage(),   // Home
     CollectionPage(),  // Collection
-    LearnPage(),       // Learn
-    ProfilePage(),     // Profile
   ];
 
   @override
@@ -33,7 +29,6 @@ class _MainNavPageState extends State<MainNavPage> {
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // Show tabs without losing their state
       body: IndexedStack(
         index: current,
         children: _pages,
@@ -50,32 +45,24 @@ class _MainNavPageState extends State<MainNavPage> {
         child: SizedBox(
           height: 78,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Home on far left
               _NavItem(
                 icon: Icons.home_rounded,
                 label: 'Home',
                 selected: current == 0,
                 onTap: () => setState(() => current = 0),
               ),
+
+              const SizedBox(width: 60), // space for Scan button
+
+              // Collection on far right
               _NavItem(
                 icon: Icons.eco_rounded,
                 label: 'Collection',
                 selected: current == 1,
                 onTap: () => setState(() => current = 1),
-              ),
-              const SizedBox(width: 60), // gap for the center FAB
-              _NavItem(
-                icon: Icons.menu_book_rounded,
-                label: 'Learn',
-                selected: current == 2,
-                onTap: () => setState(() => current = 2),
-              ),
-              _NavItem(
-                icon: Icons.person_rounded,
-                label: 'Profile',
-                selected: current == 3,
-                onTap: () => setState(() => current = 3),
               ),
             ],
           ),
@@ -96,7 +83,6 @@ class _ScanFab extends StatelessWidget {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // white ring + shadow (the halo)
         Container(
           width: 74,
           height: 74,
@@ -112,24 +98,32 @@ class _ScanFab extends StatelessWidget {
             ],
           ),
         ),
-        // green FAB
         SizedBox(
           width: 58,
           height: 58,
           child: FloatingActionButton(
             heroTag: 'scanFab',
             elevation: 0,
-            backgroundColor: Colors.white, // FAB background (white)
-            shape: const CircleBorder(), // Ensures FAB is circular
-            onPressed: () {
-              // TODO: navigate to scan/camera page
+            backgroundColor: Colors.white,
+            shape: const CircleBorder(),
+            onPressed: () async {
+              final url = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ScanPage()),
+              );
+
+              if (url != null && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Image saved to scans')),
+                );
+              }
             },
             child: Container(
               decoration: const BoxDecoration(
-                color: Color(0xFF2F7D32), // Your green brand color
+                color: Color(0xFF2F7D32),
                 shape: BoxShape.circle,
               ),
-              padding: const EdgeInsets.all(14), // Space inside green circle
+              padding: const EdgeInsets.all(14),
               child: const Icon(
                 Icons.center_focus_strong_rounded,
                 color: Colors.white,
@@ -170,7 +164,7 @@ class _NavItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: SizedBox(
-        width: 72,
+        width: 150, // keep width consistent
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

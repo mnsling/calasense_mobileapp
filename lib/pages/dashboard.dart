@@ -1,5 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'scan.dart';
+
+/// Shortcuts
+final _sb = Supabase.instance.client;
+
+/// Get the current user's profile row once (used elsewhere if needed)
+Future<Map<String, dynamic>?> fetchProfile() async {
+  final user = _sb.auth.currentUser;
+  if (user == null) return null;
+
+  final res = await _sb
+      .from('profiles')
+      .select('username, email')
+      .eq('id', user.id)
+      .maybeSingle();
+
+  return res;
+}
+
+/// Live stream of the current user's profile (for auto-updating header)
+Stream<Map<String, dynamic>?> profileStream() {
+  final user = _sb.auth.currentUser;
+  if (user == null) {
+    // emit a single null
+    return Stream.value(null);
+  }
+  return _sb
+      .from('profiles')
+      .stream(primaryKey: ['id'])
+      .eq('id', user.id)
+      .map((rows) => rows.isEmpty ? null : rows.first);
+}
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -7,16 +40,12 @@ class DashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // remove backgroundColor here, we’ll handle it in Container
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.white,                  // top color
-              Color(0xFFDFF2D3),             // bottom light green
-            ],
+            colors: [Colors.white, Color(0xFFDFF2D3)],
           ),
         ),
         child: SafeArea(
@@ -27,7 +56,22 @@ class DashboardPage extends StatelessWidget {
                 const SizedBox(height: 30),
                 const DashboardHeader(),
                 const SizedBox(height: 30),
-                DetectButton(onTap: _dummyAction),
+
+                // 👇 Scan button now opens ScanPage and awaits result
+                DetectButton(
+                  onTap: () async {
+                    final url = await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ScanPage()),
+                    );
+                    if (url != null && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Image uploaded to scans')),
+                      );
+                    }
+                  },
+                ),
+
                 const SizedBox(height: 70),
                 const RecentScansCarousel(),
                 const SizedBox(height: 70),
@@ -40,18 +84,17 @@ class DashboardPage extends StatelessWidget {
       ),
     );
   }
-
-  static void _dummyAction() {
-    debugPrint("Detect button tapped!");
-  }
 }
 
-/// Header only
+/// Header that greets the current user by their **latest** username.
+/// Uses a Supabase Realtime stream so edits reflect instantly.
 class DashboardHeader extends StatelessWidget {
   const DashboardHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = GoogleFonts.poppinsTextTheme();
+
     return Padding(
       padding: const EdgeInsets.all(30),
       child: Row(
@@ -59,28 +102,70 @@ class DashboardHeader extends StatelessWidget {
         children: [
           // Left texts
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Hello User!",
-                  style: GoogleFonts.poppins(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.5,
-                    color: const Color(0xFF2F7D32), // brand green
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  "Welcome to CalaSense, Detect, Learn \nand Defend Your Calamansi Plants",
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.black87,
-                    height: 1.35,
-                  ),
-                ),
-              ],
+            child: StreamBuilder<Map<String, dynamic>?>(
+              stream: profileStream(),
+              builder: (context, snap) {
+                final user = _sb.auth.currentUser;
+
+                // While loading/connecting, show a subtle placeholder
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 180,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(.05),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: 260,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(.05),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                final data = snap.data;
+                final username = (data?['username'] as String?)?.trim();
+                final email = (data?['email'] as String?) ?? user?.email;
+
+                final greetingName =
+                (username != null && username.isNotEmpty)
+                    ? username
+                    : (email ?? 'User');
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Hello $greetingName!",
+                      style: textTheme.titleLarge?.copyWith(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.5,
+                        color: const Color(0xFF2F7D32),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Welcome to CalaSense, Detect, Learn \nand Defend Your Calamansi Plants",
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontSize: 12,
+                        color: Colors.black87,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
 
@@ -89,10 +174,7 @@ class DashboardHeader extends StatelessWidget {
             width: 54,
             height: 54,
             child: ClipOval(
-              child: Image.asset(
-                'assets/logo.png',
-                fit: BoxFit.cover,
-              ),
+              child: Image.asset('assets/logo.png', fit: BoxFit.cover),
             ),
           ),
         ],
@@ -115,10 +197,10 @@ class DetectButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Container( // 👈 use Container instead of Ink
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           decoration: BoxDecoration(
-            color: const Color(0x80AEEA00), // your bright green
+            color: const Color(0x80AEEA00),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -151,10 +233,10 @@ class DetectButton extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
+              const SizedBox(
                 width: 56,
                 height: 56,
-                child: const Icon(
+                child: Icon(
                   Icons.center_focus_strong_rounded,
                   color: Colors.black87,
                   size: 50,
@@ -220,19 +302,17 @@ class _RecentScansCarouselState extends State<RecentScansCarousel> {
         ),
         const SizedBox(height: 20),
 
-        // Carousel
+        // Carousel (still placeholder UI)
         SizedBox(
           height: 160,
           child: PageView.builder(
             controller: _pc,
-            itemCount: 5, // number of placeholder cards
+            itemCount: 5,
             onPageChanged: (i) => setState(() => _index = i),
-            itemBuilder: (context, i) {
-              return Padding(
-                padding: const EdgeInsets.only(left: 22, right: 12),
-                child: _ScanPlaceholderCard(index: i),
-              );
-            },
+            itemBuilder: (context, i) => Padding(
+              padding: const EdgeInsets.only(left: 22, right: 12),
+              child: _ScanPlaceholderCard(index: i),
+            ),
           ),
         ),
         const SizedBox(height: 30),
@@ -284,33 +364,22 @@ class _ScanPlaceholderCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Text(
-            "Title",
-            style: t.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: Colors.black87,
-            ),
-          ),
+          Text("Title",
+              style: t.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              )),
           const SizedBox(height: 6),
-          Text(
-            "Confidence Score: --%",
-            style: t.bodyMedium?.copyWith(
-              color: Colors.black87,
-            ),
-          ),
+          Text("Confidence Score: --%",
+              style: t.bodyMedium?.copyWith(color: Colors.black87)),
           const SizedBox(height: 2),
-          Text(
-            "Date Scanned: --/--/----",
-            style: t.bodySmall?.copyWith(
-              color: Colors.black54,
-            ),
-          ),
+          Text("Date Scanned: --/--/----",
+              style: t.bodySmall?.copyWith(color: Colors.black54)),
         ],
       ),
     );
   }
 }
-
 
 class SuggestedReadsCarousel extends StatefulWidget {
   const SuggestedReadsCarousel({super.key});
@@ -352,7 +421,8 @@ class _SuggestedReadsCarouselState extends State<SuggestedReadsCarousel> {
               const SizedBox(height: 6),
               Text(
                 'Expand your knowledge on citrus health and disease prevention.',
-                style: t.bodyMedium?.copyWith(color: Colors.black54, fontSize: 12),
+                style: t.bodyMedium?.copyWith(
+                    color: Colors.black54, fontSize: 12),
               ),
             ],
           ),
@@ -364,17 +434,15 @@ class _SuggestedReadsCarouselState extends State<SuggestedReadsCarousel> {
           height: 190,
           child: PageView.builder(
             controller: _pc,
-            itemCount: 3, // number of placeholder cards
+            itemCount: 3,
             onPageChanged: (i) => setState(() => _index = i),
-            itemBuilder: (context, i) {
-              return Padding(
-                padding: EdgeInsets.only(
-                  left: i == 0 ? 30 : 14,
-                  right: i == 2 ? 30 : 14,
-                ),
-                child: const _ReadPlaceholderCard(),
-              );
-            },
+            itemBuilder: (context, i) => Padding(
+              padding: EdgeInsets.only(
+                left: i == 0 ? 30 : 14,
+                right: i == 2 ? 30 : 14,
+              ),
+              child: const _ReadPlaceholderCard(),
+            ),
           ),
         ),
         const SizedBox(height: 30),
@@ -424,7 +492,6 @@ class _ReadPlaceholderCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Small green dot
           const Padding(
             padding: EdgeInsets.only(top: 8.0, right: 12),
             child: CircleAvatar(
@@ -432,17 +499,13 @@ class _ReadPlaceholderCard extends StatelessWidget {
               backgroundColor: Color(0xFF2F7D32),
             ),
           ),
-
-          // Texts
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Author',
-                  style: t.bodySmall?.copyWith(color: Colors.black87),
-                ),
+                Text('Author',
+                    style: t.bodySmall?.copyWith(color: Colors.black87)),
                 Text(
                   'Title',
                   maxLines: 1,
@@ -469,7 +532,7 @@ class _ReadPlaceholderCard extends StatelessWidget {
                 Text(
                   'Read Full Article',
                   style: t.bodySmall?.copyWith(
-                    color: const Color(0xFF2F7D32),
+                    color: Color(0xFF2F7D32),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -481,4 +544,3 @@ class _ReadPlaceholderCard extends StatelessWidget {
     );
   }
 }
-

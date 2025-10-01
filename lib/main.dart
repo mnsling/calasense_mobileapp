@@ -1,8 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'pages/authentication.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() => runApp(const CalaSenseApp());
+// ✅ Only keep the nav you still use
+import 'pages/navigation.dart'; // Main bottom nav (Dashboard / Collection / Scan)
+
+// TODO: for production, move these to a secure config (.env or build-time vars)
+const String kSupabaseUrl = 'https://ltmdxtnwsymsimcwqvjm.supabase.co';
+const String kSupabaseAnonKey =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0bWR4dG53c3ltc2ltY3dxdmptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxNjUyODMsImV4cCI6MjA3Mjc0MTI4M30.lS0TPXeykceVVGl-MlazzyliibCV7wvH0Vm4MuCt2FA';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase once (okay even if you’re not using Auth).
+  await Supabase.initialize(
+    url: kSupabaseUrl,
+    anonKey: kSupabaseAnonKey,
+  );
+
+  runApp(const CalaSenseApp());
+}
 
 class CalaSenseApp extends StatelessWidget {
   const CalaSenseApp({super.key});
@@ -10,17 +28,26 @@ class CalaSenseApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'CalaSense',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        textTheme: GoogleFonts.poppinsTextTheme(),
+        useMaterial3: true,
         scaffoldBackgroundColor: const Color(0xFFEFFAF2),
+        textTheme: GoogleFonts.poppinsTextTheme(),
       ),
+      // 👉 Start on the animated landing page
       home: const WelcomePage(),
+      routes: {
+        '/welcome': (_) => const WelcomePage(),
+        '/main': (_) => const MainNavPage(),
+      },
     );
   }
 }
 
+/// ─────────────────────────────────────────────────────────────
+/// ANIMATED LANDING PAGE (WelcomePage)
+/// ─────────────────────────────────────────────────────────────
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
 
@@ -52,7 +79,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
   void initState() {
     super.initState();
 
-    // Entrance
+    // Entrance animations
     _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
     _slide = Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
         .animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
@@ -76,22 +103,19 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
         _isCorner = true;
       });
 
-      // Tagline after move
       Future.delayed(const Duration(milliseconds: 600), () {
         if (!mounted) return;
         setState(() => _showTagline = true);
 
-        // Background after 1.5s
         Future.delayed(const Duration(milliseconds: 1500), () {
           if (!mounted) return;
           setState(() => _showImage = true);
-          _bgCtrl.forward(); // start bounce
+          _bgCtrl.forward();
 
-          // Button after 2s
           Future.delayed(const Duration(seconds: 2), () {
             if (!mounted) return;
             setState(() => _showButton = true);
-            _btnCtrl.forward(); // start fade
+            _btnCtrl.forward();
           });
         });
       });
@@ -108,35 +132,28 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final crossAxis =
-    _isCorner ? CrossAxisAlignment.start : CrossAxisAlignment.center;
+    final crossAxis = _isCorner ? CrossAxisAlignment.start : CrossAxisAlignment.center;
     final nameAlign = _isCorner ? TextAlign.left : TextAlign.center;
 
     return Scaffold(
-      // Keep top safe area, disable bottom so button can touch the edge
       body: SafeArea(
         top: true,
         bottom: false,
         child: Stack(
           children: [
-            // Background image: bouncy slide-in, shifted down a bit
             if (_showImage)
               SlideTransition(
                 position: _bgSlide,
                 child: Transform.translate(
-                  offset: const Offset(0, 220), // adjust vertical placement
+                  offset: const Offset(0, 220),
                   child: SizedBox(
                     height: MediaQuery.of(context).size.height,
                     width: double.infinity,
-                    child: Image.asset(
-                      'assets/landingbg.png',
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.asset('assets/landingbg.png', fit: BoxFit.cover),
                   ),
                 ),
               ),
 
-            // Brand content
             AnimatedAlign(
               alignment: _brandAlignment,
               duration: const Duration(milliseconds: 600),
@@ -148,10 +165,7 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                   child: ScaleTransition(
                     scale: _scale,
                     child: Padding(
-                      padding: EdgeInsets.only(
-                        left: _isCorner ? 16 : 0,
-                        top: _isCorner ? 12 : 0,
-                      ),
+                      padding: EdgeInsets.only(left: _isCorner ? 16 : 0, top: _isCorner ? 12 : 0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: crossAxis,
@@ -195,7 +209,6 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
               ),
             ),
 
-            // Bottom button: spans full width & touches the bottom edge
             if (_showButton)
               Align(
                 alignment: Alignment.bottomCenter,
@@ -206,16 +219,13 @@ class _WelcomePageState extends State<WelcomePage> with TickerProviderStateMixin
                     height: 80,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4CAF50), // or Colors.black
-                        shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.zero, // square corners to flush bottom
-                        ),
+                        backgroundColor: const Color(0xFF4CAF50),
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                         elevation: 0,
                       ),
                       onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const AuthenticationPage()),
-                        );
+                        // 👉 Go straight to your app (no auth)
+                        Navigator.of(context).pushReplacementNamed('/main');
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
