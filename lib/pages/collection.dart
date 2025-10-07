@@ -91,7 +91,6 @@ class _CollectionPageState extends State<CollectionPage> {
 
     try {
       await _sb.from('collections').insert({'name': trimmed});
-      _toast('Folder "$trimmed" created');
       await _loadAll();
     } catch (e) {
       _toast('Create failed: $e');
@@ -133,7 +132,6 @@ class _CollectionPageState extends State<CollectionPage> {
         return;
       }
 
-      _toast('Renamed to "$trimmed"');
       await _loadAll();
     } catch (e) {
       _toast('Rename failed: $e');
@@ -165,7 +163,7 @@ class _CollectionPageState extends State<CollectionPage> {
         return;
       }
 
-      _toast('Folder "$name" deleted');
+
       await _loadAll();
     } catch (e) {
       _toast('Delete failed: $e');
@@ -300,7 +298,6 @@ class _CollectionPageState extends State<CollectionPage> {
       _selectedPinIds.clear();
       _toggleSelectionMode(false);
       if (mounted) setState(() {});
-      _toast('Moved ${ids.length} pin${ids.length == 1 ? '' : 's'}');
     } catch (e) {
       _toast('Move failed: $e');
     }
@@ -334,7 +331,7 @@ class _CollectionPageState extends State<CollectionPage> {
       _selectedPinIds.clear();
       _toggleSelectionMode(false);
       if (mounted) setState(() {});
-      _toast('Deleted');
+
     } catch (e) {
       _toast('Delete failed: $e');
     }

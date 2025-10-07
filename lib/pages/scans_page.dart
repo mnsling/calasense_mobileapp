@@ -161,7 +161,6 @@ class _ScansPageState extends State<ScansPage> {
         _toast('Delete did not match any rows. Check RLS or id.');
         return;
       }
-      _toast('Folder deleted');
       if (!mounted) return;
       Navigator.pop(context, true); // refresh parent
     } catch (e) {

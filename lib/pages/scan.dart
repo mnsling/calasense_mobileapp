@@ -100,7 +100,6 @@ class _ScanPageState extends State<ScanPage> {
         // created_at defaults in DB
       });
 
-      _toast('Image uploaded!');
       if (!mounted) return;
       Navigator.pop(context, publicUrl); // return URL to caller (ScansPage)
     } catch (e) {

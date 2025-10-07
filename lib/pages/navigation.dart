@@ -111,12 +111,6 @@ class _ScanFab extends StatelessWidget {
                 context,
                 MaterialPageRoute(builder: (_) => const ScanPage()),
               );
-
-              if (url != null && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Image saved to scans')),
-                );
-              }
             },
             child: Container(
               decoration: const BoxDecoration(
