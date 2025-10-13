@@ -43,3 +43,107 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Flutter
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+*.iml
+.idea/
+.vscode/
+*.lock
+*.log
+
+# Ignore backend if you don’t want to include it
+flask_api/__pycache__/
+flask_api/instance/
+flask_api/*.pyc
+flask_api/*.pt
+flask_api/.env
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.log
+*.pot
+*.pyc
+*.sqlite3
+instance/
+*.db
+
+# === Environment ===
+.env
+.env.*
+.venv/
+venv/
+ENV/
+env.bak/
+*.env.local
+
+# === Byte-compiled / optimized files ===
+*.py[cod]
+*$py.class
+
+# === Build & Packaging ===
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# === Docker ===
+*.pid
+*.tar
+.dockerignore
+docker-compose.override.yml
+# Exclude large models if not tracked by Git LFS
+*.pt
+*.onnx
+*.tflite
+
+# === Logs & Cache ===
+logs/
+*.log
+*.out
+*.err
+*.tmp
+.cache/
+__pycache__/
+*.prof
+*.dat
+*.gz
+*.bak
+*.swp
+
+# === IDEs & Editors ===
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.iml
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Misc ===
+# Flask instance folders
+*.pid
+*.sock
