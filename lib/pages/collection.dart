@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import 'scans_page.dart';
+import 'folder.dart';
+import 'scan_info_page.dart';
 
 class CollectionPage extends StatefulWidget {
   const CollectionPage({super.key});
@@ -504,14 +504,24 @@ class _CollectionPageState extends State<CollectionPage> {
                             final picked = _selectedPinIds.contains(id);
 
                             return GestureDetector(
-                              onTap: _selecting ? () => _togglePick(id) : null,
+                              onTap: _selecting
+                                  ? () => _togglePick(id)
+                                  : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ScanInfoPage(scan: row),
+                                  ),
+                                );
+                              },
                               onLongPress: () => _toggleSelectionMode(true),
                               child: Stack(
                                 children: [
                                   _PinCard(url: url),
                                   if (_selecting)
                                     Positioned(
-                                      top: 8, left: 8,
+                                      top: 8,
+                                      left: 8,
                                       child: _SelectDot(checked: picked),
                                     ),
                                 ],
