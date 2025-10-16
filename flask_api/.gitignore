@@ -80,3 +80,5 @@ desktop.ini
 # Flask instance folders
 *.pid
 *.sock
+
+yolov5
