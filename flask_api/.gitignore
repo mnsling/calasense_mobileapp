@@ -48,6 +48,7 @@ docker-compose.override.yml
 # Exclude large models if not tracked by Git LFS
 *.onnx
 *.tflite
+*.pt
 
 # === Logs & Cache ===
 logs/

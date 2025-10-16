@@ -1,55 +1,55 @@
 import pathlib
-pathlib.WindowsPath = pathlib.PosixPath
+pathlib.WindowsPath = pathlib.PosixPath  # handle Windows-saved checkpoints on Linux
 
-import io, os, time
+import io, os, time, base64
 from datetime import datetime
-from PIL import Image
+from PIL import Image, ImageDraw
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 import torch
-import base64
 
 print("Loading YOLOv5 model...")
-model = torch.hub.load('/opt/yolov5', 'custom', path='model.pt', source='local')
-print("Model loaded succesfully.")
+model = torch.hub.load('/opt/yolov5', 'custom', path='model/model.pt', source='local')
+print("Model loaded.")
 
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
-app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
 
-ALLOWED_EXT = {"jpg", "jpeg", "png", "bmp", "webp"}
-def _allowed(fn): return "." in fn and fn.rsplit(".", 1)[1].lower() in ALLOWED_EXT
+ALLOWED = {"jpg", "jpeg", "png", "bmp", "webp"}
+def _allowed(name): return "." in name and name.rsplit(".", 1)[1].lower() in ALLOWED
 def _now(): return datetime.utcnow().isoformat() + "Z"
 
 @app.get("/health")
-def health(): return jsonify(status="ok", time=_now())
+def health():
+    return jsonify(status="ok", time=_now())
 
 @app.post("/predict")
 def predict():
     if "image" not in request.files:
-        return jsonify(error="No file 'image' found"), 400
+        return jsonify(ok=False, error="No file 'image' found"), 400
     f = request.files["image"]
-    if f.filename == "":
-        return jsonify(error="No filename"), 400
+    if not f.filename:
+        return jsonify(ok=False, error="No filename"), 400
     if not _allowed(f.filename):
-        return jsonify(error="Unsupported file type"), 415
+        return jsonify(ok=False, error="Unsupported file type"), 415
 
     try:
         img = Image.open(io.BytesIO(f.read())).convert("RGB")
     except Exception as e:
-        return jsonify(error=f"Invalid image: {e}"), 400
+        return jsonify(ok=False, error=f"Invalid image: {e}"), 400
 
-    # ---- optional thresholds while testing ----
-    # model.conf = 0.25  # confidence threshold
-    # model.iou  = 0.45  # NMS IoU threshold
+    # Optional thresholds (uncomment to tweak)
+    # model.conf = 0.25
+    # model.iou  = 0.45
 
-    start = time.time()
+    t0 = time.time()
     results = model(img, size=640)
-    df = results.pandas().xyxy[0]  # DataFrame of detections
+    df = results.pandas().xyxy[0]   # DataFrame with boxes
 
-    # Build detections list
+    # Build detections list (all boxes)
     detections = []
     for _, r in df.iterrows():
         detections.append({
@@ -59,35 +59,44 @@ def predict():
             "class_name": str(r["name"]),
         })
 
-    # Draw boxes with PIL (avoids OpenCV writeability issues)
-    from PIL import ImageDraw  # (font optional)
-    vis = img.copy()
-    draw = ImageDraw.Draw(vis)
-    for d in detections:
-        x1, y1, x2, y2 = d["bbox"]
-        label = f'{d["class_name"]} {d["confidence"]:.2f}'
-        draw.rectangle([x1, y1, x2, y2], outline=(255, 0, 0), width=2)
-        draw.text((x1, max(0, y1 - 12)), label, fill=(255, 0, 0))
+    include_image = request.args.get("image", "false").lower() == "true"
+    image_base64 = None
 
-    # Encode preview as Base64 JPEG
-    buf = io.BytesIO()
-    vis.save(buf, format="JPEG", quality=85)
-    image_base64 = base64.b64encode(buf.getvalue()).decode()
+    if include_image:
+        try:
+            vis = img.copy()
+            draw = ImageDraw.Draw(vis)
+            for d in detections:
+                x1, y1, x2, y2 = d["bbox"]
+                lbl = f'{d["class_name"]} {d["confidence"]:.2f}'
+                draw.rectangle([x1, y1, x2, y2], outline=(255, 0, 0), width=2)
+                draw.text((x1, max(0, y1 - 12)), lbl, fill=(255, 0, 0))
+            buf = io.BytesIO()
+            vis.save(buf, format="JPEG", quality=85)
+            image_base64 = base64.b64encode(buf.getvalue()).decode()
+        except Exception as e:
+            print(f"[predict] preview encode failed: {e}")
 
-    elapsed_ms = int((time.time() - start) * 1000)
+    elapsed_ms = int((time.time() - t0) * 1000)
 
-    return jsonify(
-        detections=detections,
-        ok=True,
-        image_base64=image_base64,
-        meta={
+    resp = {
+        "ok": True,
+        "detections": detections,  # list of boxes
+        "meta": {
             "inference_ms": elapsed_ms,
             "width": img.width,
             "height": img.height,
-            "timestamp": _now()
+            "timestamp": _now(),
         }
-    )
+    }
+    if image_base64:
+        # put image earlier if you like; order is preserved in Python 3.7+
+        resp["image_base64"] = image_base64
+
+    return jsonify(resp)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
+
+
