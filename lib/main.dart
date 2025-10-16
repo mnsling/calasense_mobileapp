@@ -5,6 +5,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // ✅ Only keep the nav you still use
 import 'pages/navigation.dart'; // Main bottom nav (Dashboard / Collection / Scan)
 
+import 'dart:async';
+import 'services/predict_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert'; // for base64Decode
+import 'dart:typed_data'; // for Uint8List
+
+String apiBaseUrl() => 'http://10.0.2.2:5000'; // Android emulator
+
+Future<void> _pingHealth() async {
+  final url = Uri.parse('${apiBaseUrl()}/health');
+  try {
+    debugPrint('[HEALTH] GET $url');
+    final r = await http.get(url).timeout(const Duration(seconds: 5));
+    debugPrint('[HEALTH] ${r.statusCode} ${r.body}');
+  } catch (e) {
+    debugPrint('[HEALTH][ERR] $e');
+  }
+}
+
 // TODO: for production, move these to a secure config (.env or build-time vars)
 const String kSupabaseUrl = 'https://ltmdxtnwsymsimcwqvjm.supabase.co';
 const String kSupabaseAnonKey =
@@ -20,6 +39,41 @@ Future<void> main() async {
   );
 
   runApp(const CalaSenseApp());
+
+  scheduleMicrotask(() async {
+  try {
+    final api = PredictService(apiBaseUrl());
+    debugPrint('[PREDICT] sending assets/test_image.jpg');
+    final data = await api.predictFromAsset('assets/test_image.jpg');
+
+    debugPrint('Prediction => ${data['detections']}');
+    debugPrint('Meta => ${data['meta']}');
+
+    // Decode the base64 image
+    if (data.containsKey('image_base64')) {
+      final String b64 = data['image_base64'];
+      final Uint8List bytes = base64Decode(b64);
+
+      // OPTION A: just print info
+      debugPrint('[IMAGE] decoded ${bytes.length} bytes');
+
+      // OPTION B: show in a dialog (if context available)
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   showDialog(
+      //     context: navigatorKey.currentContext!,
+      //     builder: (_) => AlertDialog(
+      //       content: Image.memory(bytes),
+      //     ),
+      //   );
+      // });
+
+      // OPTION C: temporarily save to file
+      // final file = File('${(await getTemporaryDirectory()).path}/output.jpg');
+      // await file.writeAsBytes(bytes);
+      // debugPrint('[IMAGE] saved preview to ${file.path}');
+    }
+  } catch (e, st) {
+    debugPrint('[PREDICT][ERR] $e');
 }
 
 class CalaSenseApp extends StatelessWidget {

@@ -27,28 +27,61 @@ def health(): return jsonify(status="ok", time=_now())
 
 @app.post("/predict")
 def predict():
-    if "image" not in request.files: return jsonify(error="No file 'image' found"), 400
+    if "image" not in request.files:
+        return jsonify(error="No file 'image' found"), 400
     f = request.files["image"]
-    if f.filename == "": return jsonify(error="No filename"), 400
-    if not _allowed(f.filename): return jsonify(error="Unsupported file type"), 415
+    if f.filename == "":
+        return jsonify(error="No filename"), 400
+
 
     try:
         img = Image.open(io.BytesIO(f.read())).convert("RGB")
     except Exception as e:
         return jsonify(error=f"Invalid image: {e}"), 400
 
+
     start = time.time()
     results = model(img, size=640)
     df = results.pandas().xyxy[0]
-    top = None if df.empty else df.sort_values("confidence", ascending=False).iloc[0]
-    elapsed = int((time.time() - start) * 1000)
 
-    pred = {"class": None, "confidence": 0.0} if top is None else \
-           {"class": str(top["name"]), "confidence": float(top["confidence"])}
 
-    return jsonify(ok=True, prediction=pred, meta={
-        "inference_ms": elapsed, "width": img.width, "height": img.height, "timestamp": _now()
-    })
+    # --- Build detections list ---
+    detections = []
+    for _, r in df.iterrows():
+        detections.append({
+            "bbox": [float(r["xmin"]), float(r["ymin"]), float(r["xmax"]), float(r["ymax"])],
+            "confidence": float(r["confidence"]),
+            "class_id": int(r["class"]),
+            "class_name": str(r["name"]),
+        })
+
+
+    # --- Draw bounding boxes on the image ---
+    results.render()  # YOLOv5 draws boxes directly on results.ims[0]
+    boxed_image = Image.fromarray(results.ims[0])
+
+
+    # Convert to base64
+    import base64
+    buf = io.BytesIO()
+    boxed_image.save(buf, format="JPEG", quality=85)
+    image_base64 = base64.b64encode(buf.getvalue()).decode()
+
+
+    elapsed_ms = int((time.time() - start) * 1000)
+
+
+    return jsonify(
+        ok=True,
+        detections=detections,
+        meta={
+            "inference_ms": elapsed_ms,
+            "width": img.width,
+            "height": img.height,
+            "timestamp": _now()
+        },
+        image_base64=image_base64  
+    )
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
