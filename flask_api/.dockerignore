@@ -1,0 +1,18 @@
+# prevent huge contexts
+.git/
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.DS_Store
+.vscode/
+.idea/
+venv/
+ngrok.exe
+
+# DO NOT ignore yolov5/ and model/ (we need them in the image)
+# yolov5/
+# model/
+

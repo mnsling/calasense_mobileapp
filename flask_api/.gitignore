@@ -43,8 +43,6 @@ var/
 # === Docker ===
 *.pid
 *.tar
-.dockerignore
-docker-compose.override.yml
 # Exclude large models if not tracked by Git LFS
 *.onnx
 *.tflite
