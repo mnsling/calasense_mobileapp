@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- Clone YOLOv5 repo (v7.0 tag) into a fixed path ---
 RUN git clone --depth 1 --branch v7.0 https://github.com/ultralytics/yolov5 /opt/yolov5
+# ========================================== UPDATE THIS TO INSTEAD USE OUR YOLOV5 REPO ========================================================
 
 # Copy only requirements first (for layer caching)
 COPY requirements.txt .

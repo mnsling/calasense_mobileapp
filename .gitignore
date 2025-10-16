@@ -62,7 +62,6 @@ build/
 flask_api/__pycache__/
 flask_api/instance/
 flask_api/*.pyc
-flask_api/*.pt
 flask_api/.env
 
 # === Python ===
@@ -113,7 +112,6 @@ var/
 .dockerignore
 docker-compose.override.yml
 # Exclude large models if not tracked by Git LFS
-*.pt
 *.onnx
 *.tflite
 

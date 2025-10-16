@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 import torch
+import base64
 
 print("Loading YOLOv5 model...")
 model = torch.hub.load('/opt/yolov5', 'custom', path='model.pt', source='local')
@@ -32,20 +33,23 @@ def predict():
     f = request.files["image"]
     if f.filename == "":
         return jsonify(error="No filename"), 400
-
+    if not _allowed(f.filename):
+        return jsonify(error="Unsupported file type"), 415
 
     try:
         img = Image.open(io.BytesIO(f.read())).convert("RGB")
     except Exception as e:
         return jsonify(error=f"Invalid image: {e}"), 400
 
+    # ---- optional thresholds while testing ----
+    # model.conf = 0.25  # confidence threshold
+    # model.iou  = 0.45  # NMS IoU threshold
 
     start = time.time()
     results = model(img, size=640)
-    df = results.pandas().xyxy[0]
+    df = results.pandas().xyxy[0]  # DataFrame of detections
 
-
-    # --- Build detections list ---
+    # Build detections list
     detections = []
     for _, r in df.iterrows():
         detections.append({
@@ -55,32 +59,33 @@ def predict():
             "class_name": str(r["name"]),
         })
 
+    # Draw boxes with PIL (avoids OpenCV writeability issues)
+    from PIL import ImageDraw  # (font optional)
+    vis = img.copy()
+    draw = ImageDraw.Draw(vis)
+    for d in detections:
+        x1, y1, x2, y2 = d["bbox"]
+        label = f'{d["class_name"]} {d["confidence"]:.2f}'
+        draw.rectangle([x1, y1, x2, y2], outline=(255, 0, 0), width=2)
+        draw.text((x1, max(0, y1 - 12)), label, fill=(255, 0, 0))
 
-    # --- Draw bounding boxes on the image ---
-    results.render()  # YOLOv5 draws boxes directly on results.ims[0]
-    boxed_image = Image.fromarray(results.ims[0])
-
-
-    # Convert to base64
-    import base64
+    # Encode preview as Base64 JPEG
     buf = io.BytesIO()
-    boxed_image.save(buf, format="JPEG", quality=85)
+    vis.save(buf, format="JPEG", quality=85)
     image_base64 = base64.b64encode(buf.getvalue()).decode()
-
 
     elapsed_ms = int((time.time() - start) * 1000)
 
-
     return jsonify(
-        ok=True,
         detections=detections,
+        ok=True,
+        image_base64=image_base64,
         meta={
             "inference_ms": elapsed_ms,
             "width": img.width,
             "height": img.height,
             "timestamp": _now()
-        },
-        image_base64=image_base64  
+        }
     )
 
 if __name__ == "__main__":
