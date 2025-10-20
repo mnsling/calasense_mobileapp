@@ -1,11 +1,11 @@
 name: calasense_app
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"   # <-- safer range; match to your installed Dart
+  sdk: ">=3.3.0 <4.0.0" # <-- safer range; match to your installed Dart
 
 dependencies:
   flutter:
@@ -15,7 +15,7 @@ dependencies:
   supabase_flutter: ^2.10.0
   image_picker: ^1.0.7
   permission_handler: ^11.3.1
-  photo_manager: ^3.2.1   # <-- add this
+  photo_manager: ^3.2.1 # <-- add this
 
 dev_dependencies:
   flutter_test:
