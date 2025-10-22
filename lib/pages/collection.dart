@@ -45,7 +45,7 @@ class _CollectionPageState extends State<CollectionPage> {
       // Orphan pins (no folder)
       final pins = await _sb
           .from('scans')
-          .select('id, image_url, created_at, predicted_class, confidence')
+          .select('id,image_url,predicted_class, confidence, created_at')
           .isFilter('collection_id', null)
           .order('created_at', ascending: false)
           .limit(200);
