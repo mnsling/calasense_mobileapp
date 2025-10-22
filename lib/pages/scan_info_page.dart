@@ -10,12 +10,19 @@ class ScanInfoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String predictedClass = scan['predicted_class'] ?? 'Disease Class';
-    final String confidence = scan['confidence'] != null
-        ? '${(scan['confidence'] * 100).toStringAsFixed(0)}%'
-        : '00%';
-// Format date properly (MM/DD/YYYY)
-    String formattedDate = '08/06/2025'; // default placeholder
+    // Extract data from Supabase
+    final String predictedClass = scan['predicted_class'] ?? 'Unknown Disease';
+    final double? confidenceValue = scan['confidence'] is num
+        ? scan['confidence'].toDouble()
+        : double.tryParse(scan['confidence']?.toString() ?? '');
+    final String confidence = confidenceValue != null
+        ? '${(confidenceValue * 100).toStringAsFixed(2)}%'
+        : 'N/A';
+
+    final String imageUrl = scan['image_url'] ?? '';
+
+    // Format date properly (MM/DD/YYYY)
+    String formattedDate = 'N/A';
     if (scan['created_at'] != null) {
       try {
         final dt = DateTime.tryParse(scan['created_at'].toString())?.toLocal();
@@ -24,7 +31,6 @@ class ScanInfoPage extends StatelessWidget {
         }
       } catch (_) {}
     }
-    final String imageUrl = scan['image_url'] ?? '';
 
     return Scaffold(
       body: Container(
@@ -69,7 +75,7 @@ class ScanInfoPage extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 10),
 
                   // === Logo & Header ===
                   Column(
@@ -123,14 +129,26 @@ class ScanInfoPage extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: AspectRatio(
-                        aspectRatio: 1,
+                      child: Align(
+                        alignment: Alignment.topCenter, // gives a bounded width
                         child: imageUrl.isNotEmpty
-                            ? Image.network(imageUrl, fit: BoxFit.cover)
+                            ? Image.network(
+                                imageUrl,
+                                fit: BoxFit.fitWidth,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey[300],
+                                    alignment: Alignment.center,
+                                    height: 200,
+                                    child: const Icon(Icons.broken_image,
+                                        size: 40, color: Colors.grey),
+                                  );
+                                },
+                              )
                             : Image.asset(
-                          'assets/sample_leaf.jpg',
-                          fit: BoxFit.cover,
-                        ),
+                                'assets/sample_leaf.jpg',
+                                fit: BoxFit.cover,
+                              ),
                       ),
                     ),
                   ),
@@ -145,19 +163,19 @@ class ScanInfoPage extends StatelessWidget {
                         _InfoCard(
                           title: 'General Information',
                           body:
-                          'Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industrys standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.',
+                              'Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry’s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.',
                         ),
                         SizedBox(height: 14),
                         _InfoCard(
                           title: 'Symptoms',
                           body:
-                          'Yellow patches on leaves, misshapen fruits, and premature fruit drop.',
+                              'Yellow patches on leaves, misshapen fruits, and premature fruit drop.',
                         ),
                         SizedBox(height: 14),
                         _InfoCard(
                           title: 'Care Tips',
                           body:
-                          'Prune affected branches and apply recommended treatments from agricultural experts.',
+                              'Prune affected branches and apply recommended treatments from agricultural experts.',
                         ),
                       ],
                     ),

@@ -38,14 +38,14 @@ class _CollectionPageState extends State<CollectionPage> {
       // IMPORTANT: select id_uuid since that’s the PK
       final rows = await _sb
           .from('collections')
-          .select('id_uuid,name,created_at')  // <- include id_uuid
+          .select('id_uuid,name,created_at') // <- include id_uuid
           .order('created_at', ascending: false);
       _collections = List<Map<String, dynamic>>.from(rows);
 
       // Orphan pins (no folder)
       final pins = await _sb
           .from('scans')
-          .select('id,image_url,created_at')
+          .select('id, image_url, created_at, predicted_class, confidence')
           .isFilter('collection_id', null)
           .order('created_at', ascending: false)
           .limit(200);
@@ -111,8 +111,11 @@ class _CollectionPageState extends State<CollectionPage> {
           decoration: const InputDecoration(hintText: 'Folder name'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Save')),
         ],
       ),
     );
@@ -145,7 +148,9 @@ class _CollectionPageState extends State<CollectionPage> {
         title: const Text('Delete Folder'),
         content: Text('Are you sure you want to delete "$name"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -157,12 +162,12 @@ class _CollectionPageState extends State<CollectionPage> {
     if (confirm != true) return;
 
     try {
-      final res = await _sb.from('collections').delete().eq('id_uuid', idUuid).select();
+      final res =
+          await _sb.from('collections').delete().eq('id_uuid', idUuid).select();
       if ((res as List).isEmpty) {
         _toast('Delete did not match any rows. Check RLS or id.');
         return;
       }
-
 
       await _loadAll();
     } catch (e) {
@@ -183,7 +188,12 @@ class _CollectionPageState extends State<CollectionPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(height: 4, width: 40, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
+              Container(
+                  height: 4,
+                  width: 40,
+                  decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(4))),
               const SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.edit_rounded),
@@ -194,7 +204,8 @@ class _CollectionPageState extends State<CollectionPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                leading:
+                    const Icon(Icons.delete_forever_rounded, color: Colors.red),
                 title: const Text('Delete'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -240,7 +251,12 @@ class _CollectionPageState extends State<CollectionPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(height: 4, width: 40, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
+              Container(
+                  height: 4,
+                  width: 40,
+                  decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(4))),
               const SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.drive_file_move_rounded),
@@ -252,7 +268,8 @@ class _CollectionPageState extends State<CollectionPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                leading:
+                    const Icon(Icons.delete_forever_rounded, color: Colors.red),
                 title: const Text('Delete selected'),
                 enabled: _selectedPinIds.isNotEmpty,
                 onTap: () {
@@ -289,9 +306,8 @@ class _CollectionPageState extends State<CollectionPage> {
     final inValue = '(${ids.map((e) => e is String ? '"$e"' : e).join(',')})';
 
     try {
-      await _sb
-          .from('scans')
-          .update({'collection_id': chosenId})   // chosenId must be a real id_uuid
+      await _sb.from('scans').update(
+              {'collection_id': chosenId}) // chosenId must be a real id_uuid
           .filter('id', 'in', inValue);
 
       _orphanScans.removeWhere((r) => ids.contains(r['id']));
@@ -303,7 +319,6 @@ class _CollectionPageState extends State<CollectionPage> {
     }
   }
 
-
   Future<void> _deletePins(List<dynamic> ids) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -311,7 +326,9 @@ class _CollectionPageState extends State<CollectionPage> {
         title: const Text('Delete'),
         content: Text('Delete ${ids.length} pin${ids.length == 1 ? '' : 's'}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -331,7 +348,6 @@ class _CollectionPageState extends State<CollectionPage> {
       _selectedPinIds.clear();
       _toggleSelectionMode(false);
       if (mounted) setState(() {});
-
     } catch (e) {
       _toast('Delete failed: $e');
     }
@@ -352,7 +368,8 @@ class _CollectionPageState extends State<CollectionPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [Colors.white, Color(0xFFDFF2D3)],
           ),
         ),
@@ -371,8 +388,14 @@ class _CollectionPageState extends State<CollectionPage> {
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white, borderRadius: BorderRadius.circular(12),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 10, offset: const Offset(0, 4))],
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withOpacity(.06),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4))
+                          ],
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: TextField(
@@ -388,12 +411,14 @@ class _CollectionPageState extends State<CollectionPage> {
                     ),
                     const SizedBox(width: 10),
                     Material(
-                      color: const Color(0xFF2F7D32), borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFF2F7D32),
+                      borderRadius: BorderRadius.circular(12),
                       child: InkWell(
                         onTap: _createFolder,
                         borderRadius: BorderRadius.circular(12),
                         child: const SizedBox(
-                          height: 48, width: 48,
+                          height: 48,
+                          width: 48,
                           child: Icon(Icons.add, color: Colors.white),
                         ),
                       ),
@@ -410,7 +435,9 @@ class _CollectionPageState extends State<CollectionPage> {
                   children: [
                     _ActionChip(
                       label: _selecting ? 'Cancel' : 'Select',
-                      icon: _selecting ? Icons.close_rounded : Icons.check_circle_outline_rounded,
+                      icon: _selecting
+                          ? Icons.close_rounded
+                          : Icons.check_circle_outline_rounded,
                       onTap: () => _toggleSelectionMode(),
                     ),
                     const SizedBox(width: 10),
@@ -422,7 +449,8 @@ class _CollectionPageState extends State<CollectionPage> {
                         borderRadius: BorderRadius.circular(14),
                         child: const Padding(
                           padding: EdgeInsets.all(10),
-                          child: Icon(Icons.more_horiz_rounded, size: 22, color: Colors.black87),
+                          child: Icon(Icons.more_horiz_rounded,
+                              size: 22, color: Colors.black87),
                         ),
                       ),
                     ),
@@ -438,113 +466,134 @@ class _CollectionPageState extends State<CollectionPage> {
                   child: _loading
                       ? const Center(child: CircularProgressIndicator())
                       : ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                      // Folders
-                      if (_filteredFolders.isNotEmpty) ...[
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.only(bottom: 8),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: .95,
-                          ),
-                          itemCount: _filteredFolders.length,
-                          itemBuilder: (_, i) {
-                            final folder = _filteredFolders[i];
-                            final idUuid = folder['id_uuid'] as String; // UUID
-                            final name = (folder['name'] ?? '').toString();
-                            final createdAt = folder['created_at']?.toString();
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          children: [
+                            // Folders
+                            if (_filteredFolders.isNotEmpty) ...[
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                padding: const EdgeInsets.only(bottom: 8),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: .95,
+                                ),
+                                itemCount: _filteredFolders.length,
+                                itemBuilder: (_, i) {
+                                  final folder = _filteredFolders[i];
+                                  final idUuid =
+                                      folder['id_uuid'] as String; // UUID
+                                  final name =
+                                      (folder['name'] ?? '').toString();
+                                  final createdAt =
+                                      folder['created_at']?.toString();
 
-                            return _FolderCard(
-                              name: name,
-                              createdAt: createdAt,
-                              onTap: () async {
-                                final changed = await Navigator.push<bool>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ScansPage(
-                                      collectionId: idUuid,
-                                      collectionName: name,
-                                    ),
-                                  ),
-                                );
-                                if (changed == true) _loadAll();
-                              },
-                              onMenu: () => _openItemMenu(idUuid, name),
-                              onLongPress: () => _openItemMenu(idUuid, name),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Orphan pins
-                      if (_orphanScans.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
-                          child: Text(
-                            'Pins',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF2F7D32),
-                            ),
-                          ),
-                        ),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1,
-                          ),
-                          itemCount: _orphanScans.length,
-                          itemBuilder: (_, i) {
-                            final row = _orphanScans[i];
-                            final id = row['id'];
-                            final url = (row['image_url'] ?? '').toString();
-                            final picked = _selectedPinIds.contains(id);
-
-                            return GestureDetector(
-                              onTap: _selecting
-                                  ? () => _togglePick(id)
-                                  : () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ScanInfoPage(scan: row),
-                                  ),
-                                );
-                              },
-                              onLongPress: () => _toggleSelectionMode(true),
-                              child: Stack(
-                                children: [
-                                  _PinCard(url: url),
-                                  if (_selecting)
-                                    Positioned(
-                                      top: 8,
-                                      left: 8,
-                                      child: _SelectDot(checked: picked),
-                                    ),
-                                ],
+                                  return _FolderCard(
+                                    name: name,
+                                    createdAt: createdAt,
+                                    onTap: () async {
+                                      final changed =
+                                          await Navigator.push<bool>(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ScansPage(
+                                            collectionId: idUuid,
+                                            collectionName: name,
+                                          ),
+                                        ),
+                                      );
+                                      if (changed == true) _loadAll();
+                                    },
+                                    onMenu: () => _openItemMenu(idUuid, name),
+                                    onLongPress: () =>
+                                        _openItemMenu(idUuid, name),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                              const SizedBox(height: 16),
+                            ],
 
-                      if (_filteredFolders.isEmpty && _orphanScans.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 120),
-                          child: Center(
-                            child: Text(
-                              'No folders or pins yet.\nTap + to create a folder.',
-                              textAlign: TextAlign.center,
-                              style: t.titleMedium?.copyWith(color: Colors.black54),
-                            ),
-                          ),
+                            // Orphan pins
+                            if (_orphanScans.isNotEmpty) ...[
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
+                                child: Text(
+                                  'Pins',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF2F7D32),
+                                  ),
+                                ),
+                              ),
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 1,
+                                ),
+                                itemCount: _orphanScans.length,
+                                itemBuilder: (_, i) {
+                                  final row = _orphanScans[i];
+                                  final id = row['id'];
+                                  final url =
+                                      (row['image_url'] ?? '').toString();
+                                  final picked = _selectedPinIds.contains(id);
+
+                                  return GestureDetector(
+                                    onTap: _selecting
+                                        ? () => _togglePick(id)
+                                        : () {
+                                            print(row);
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    ScanInfoPage(scan: row),
+                                              ),
+                                            );
+                                          },
+                                    onLongPress: () =>
+                                        _toggleSelectionMode(true),
+                                    child: Stack(
+                                      children: [
+                                        _PinCard(url: url),
+                                        if (_selecting)
+                                          Positioned(
+                                            top: 8,
+                                            left: 8,
+                                            child: _SelectDot(checked: picked),
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            if (_filteredFolders.isEmpty &&
+                                _orphanScans.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 120),
+                                child: Center(
+                                  child: Text(
+                                    'No folders or pins yet.\nTap + to create a folder.',
+                                    textAlign: TextAlign.center,
+                                    style: t.titleMedium
+                                        ?.copyWith(color: Colors.black54),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
                 ),
               ),
             ],
@@ -574,20 +623,26 @@ class _CollectionsHeader extends StatelessWidget {
                 Text(
                   "Your Collections!",
                   style: GoogleFonts.poppins(
-                    fontSize: 30, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: const Color(0xFF2F7D32),
+                    fontSize: 30,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.5,
+                    color: const Color(0xFF2F7D32),
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   "Organize your scanned calamansi leaves\ninto folders for easier review.",
-                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.black87, height: 1.35),
+                  style: GoogleFonts.poppins(
+                      fontSize: 12, color: Colors.black87, height: 1.35),
                 ),
               ],
             ),
           ),
           SizedBox(
-            width: 54, height: 54,
-            child: ClipOval(child: Image.asset('assets/logo.png', fit: BoxFit.cover)),
+            width: 54,
+            height: 54,
+            child: ClipOval(
+                child: Image.asset('assets/logo.png', fit: BoxFit.cover)),
           ),
         ],
       ),
@@ -599,21 +654,27 @@ class _ActionChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  const _ActionChip({required this.label, required this.icon, required this.onTap});
+  const _ActionChip(
+      {required this.label, required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white, borderRadius: BorderRadius.circular(14),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: onTap, borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18), const SizedBox(width: 6),
-              Text(label, style: GoogleFonts.poppins(fontSize: 12, color: Colors.black87)),
+              Icon(icon, size: 18),
+              const SizedBox(width: 6),
+              Text(label,
+                  style:
+                      GoogleFonts.poppins(fontSize: 12, color: Colors.black87)),
             ],
           ),
         ),
@@ -629,14 +690,18 @@ class _SelectDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 24, width: 24,
+      height: 24,
+      width: 24,
       decoration: BoxDecoration(
         color: checked ? const Color(0xFF2F7D32) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.black26),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.1), blurRadius: 6)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(.1), blurRadius: 6)
+        ],
       ),
-      child: Icon(checked ? Icons.check : Icons.circle_outlined, size: 16, color: checked ? Colors.white : Colors.black45),
+      child: Icon(checked ? Icons.check : Icons.circle_outlined,
+          size: 16, color: checked ? Colors.white : Colors.black45),
     );
   }
 }
@@ -673,11 +738,13 @@ class _FolderCard extends StatelessWidget {
           children: [
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.folder_rounded, size: 56, color: Color(0xFF2F7D32)),
+                    const Icon(Icons.folder_rounded,
+                        size: 56, color: Color(0xFF2F7D32)),
                     const SizedBox(height: 10),
                     Text(
                       name,
@@ -688,7 +755,9 @@ class _FolderCard extends StatelessWidget {
                     ),
                     if (dt != null) ...[
                       const SizedBox(height: 6),
-                      Text('${dt.month}/${dt.day}/${dt.year}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                      Text('${dt.month}/${dt.day}/${dt.year}',
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.black54)),
                     ],
                   ],
                 ),
@@ -696,13 +765,18 @@ class _FolderCard extends StatelessWidget {
             ),
             if (onMenu != null)
               Positioned(
-                top: 4, right: 4,
+                top: 4,
+                right: 4,
                 child: Material(
-                  color: Colors.white, shape: const CircleBorder(),
+                  color: Colors.white,
+                  shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
                     onTap: onMenu,
-                    child: const SizedBox(height: 34, width: 34, child: Icon(Icons.more_vert_rounded, size: 20)),
+                    child: const SizedBox(
+                        height: 34,
+                        width: 34,
+                        child: Icon(Icons.more_vert_rounded, size: 20)),
                   ),
                 ),
               ),
@@ -724,16 +798,19 @@ class _PinCard extends StatelessWidget {
       child: Container(
         color: Colors.white,
         child: url.isEmpty
-            ? const Center(child: Icon(Icons.broken_image_outlined, color: Colors.black26, size: 40))
+            ? const Center(
+                child: Icon(Icons.broken_image_outlined,
+                    color: Colors.black26, size: 40))
             : Image.network(
-          url,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (_, __, ___) => const Center(
-            child: Icon(Icons.broken_image_outlined, color: Colors.black26, size: 40),
-          ),
-        ),
+                url,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                errorBuilder: (_, __, ___) => const Center(
+                  child: Icon(Icons.broken_image_outlined,
+                      color: Colors.black26, size: 40),
+                ),
+              ),
       ),
     );
   }
@@ -765,9 +842,16 @@ class _NewFolderSheetState extends State<_NewFolderSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(height: 4, width: 42, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
+            Container(
+                height: 4,
+                width: 42,
+                decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(4))),
             const SizedBox(height: 20),
-            Text('New Folder', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text('New Folder',
+                style: GoogleFonts.poppins(
+                    fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 20),
             TextField(
               controller: _controller,
@@ -782,7 +866,8 @@ class _NewFolderSheetState extends State<_NewFolderSheet> {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Colors.black12),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               ),
             ),
             const SizedBox(height: 12),
@@ -790,12 +875,17 @@ class _NewFolderSheetState extends State<_NewFolderSheet> {
               width: double.infinity,
               child: FilledButton.icon(
                 icon: _creating
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.create_new_folder_outlined),
                 label: Text(_creating ? 'Creating...' : 'Create'),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF2F7D32),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 onPressed: _submit,
@@ -824,9 +914,16 @@ class _FolderPickerSheet extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         child: Column(
           children: [
-            Container(height: 4, width: 42, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
+            Container(
+                height: 4,
+                width: 42,
+                decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(4))),
             const SizedBox(height: 10),
-            Text('Move to folder', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text('Move to folder',
+                style: GoogleFonts.poppins(
+                    fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             Expanded(
               child: ListView.builder(
@@ -835,7 +932,8 @@ class _FolderPickerSheet extends StatelessWidget {
                 itemBuilder: (_, i) {
                   final row = collections[i];
                   return ListTile(
-                    leading: const Icon(Icons.folder_rounded, color: Color(0xFF2F7D32)),
+                    leading: const Icon(Icons.folder_rounded,
+                        color: Color(0xFF2F7D32)),
                     title: Text(row['name'] ?? ''),
                     // IMPORTANT: return the UUID exactly as stored
                     onTap: () => Navigator.pop(context, row['id_uuid']),

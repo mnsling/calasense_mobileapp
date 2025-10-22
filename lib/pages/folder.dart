@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'scan_info_page.dart';
 
 class ScansPage extends StatefulWidget {
   /// Use dynamic so it works for uuid String (recommended) or int.
@@ -65,7 +66,12 @@ class _ScansPageState extends State<ScansPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(height: 4, width: 40, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(4))),
+              Container(
+                  height: 4,
+                  width: 40,
+                  decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(4))),
               const SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.edit_rounded),
@@ -76,7 +82,8 @@ class _ScansPageState extends State<ScansPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                leading:
+                    const Icon(Icons.delete_forever_rounded, color: Colors.red),
                 title: const Text('Delete folder'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -104,8 +111,11 @@ class _ScansPageState extends State<ScansPage> {
           decoration: const InputDecoration(hintText: 'Folder name'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Save')),
         ],
       ),
     );
@@ -142,9 +152,12 @@ class _ScansPageState extends State<ScansPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete folder'),
-        content: const Text('This will remove the folder. Scans linked to it may also be removed depending on your DB rules.'),
+        content: const Text(
+            'This will remove the folder. Scans linked to it may also be removed depending on your DB rules.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -156,7 +169,11 @@ class _ScansPageState extends State<ScansPage> {
     if (ok != true) return;
 
     try {
-      final res = await _sb.from('collections').delete().eq('id_uuid', widget.collectionId).select();
+      final res = await _sb
+          .from('collections')
+          .delete()
+          .eq('id_uuid', widget.collectionId)
+          .select();
       if ((res as List).isEmpty) {
         _toast('Delete did not match any rows. Check RLS or id.');
         return;
@@ -175,7 +192,9 @@ class _ScansPageState extends State<ScansPage> {
         title: const Text('Delete scan'),
         content: const Text('Remove this scan from the collection?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -245,8 +264,10 @@ class _ScansPageState extends State<ScansPage> {
                               customBorder: const CircleBorder(),
                               onTap: _handleBack,
                               child: const SizedBox(
-                                height: 44, width: 44,
-                                child: Icon(Icons.arrow_back, color: Colors.black, size: 30),
+                                height: 44,
+                                width: 44,
+                                child: Icon(Icons.arrow_back,
+                                    color: Colors.black, size: 30),
                               ),
                             ),
                           ),
@@ -257,8 +278,10 @@ class _ScansPageState extends State<ScansPage> {
                               customBorder: const CircleBorder(),
                               onTap: _openFolderMenu,
                               child: const SizedBox(
-                                height: 44, width: 44,
-                                child: Icon(Icons.more_horiz_rounded, color: Colors.black, size: 30),
+                                height: 44,
+                                width: 44,
+                                child: Icon(Icons.more_horiz_rounded,
+                                    color: Colors.black, size: 30),
                               ),
                             ),
                           ),
@@ -268,13 +291,17 @@ class _ScansPageState extends State<ScansPage> {
                       Text(
                         _title,
                         style: GoogleFonts.poppins(
-                          fontSize: 28, fontWeight: FontWeight.w600, letterSpacing: -0.5, color: const Color(0xFF2F7D32),
+                          fontSize: 28,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.5,
+                          color: const Color(0xFF2F7D32),
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '$pinCount ${pinCount == 1 ? 'Pin' : 'Pins'}',
-                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.black54, height: 1.25),
+                        style: GoogleFonts.poppins(
+                            fontSize: 12, color: Colors.black54, height: 1.25),
                       ),
                     ],
                   ),
@@ -285,21 +312,25 @@ class _ScansPageState extends State<ScansPage> {
                     child: _loading
                         ? const Center(child: CircularProgressIndicator())
                         : _items.isEmpty
-                        ? const Center(child: Text('No scans yet.', style: TextStyle(color: Colors.black54)))
-                        : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: .9,
-                      ),
-                      itemCount: _items.length,
-                      itemBuilder: (_, i) => _ScanCard(
-                        row: _items[i],
-                        onDelete: () => _deleteScan(_items[i]['id']),
-                      ),
-                    ),
+                            ? const Center(
+                                child: Text('No scans yet.',
+                                    style: TextStyle(color: Colors.black54)))
+                            : GridView.builder(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: .9,
+                                ),
+                                itemCount: _items.length,
+                                itemBuilder: (_, i) => _ScanCard(
+                                  row: _items[i],
+                                  onDelete: () => _deleteScan(_items[i]['id']),
+                                ),
+                              ),
                   ),
                 ),
               ],
@@ -313,69 +344,48 @@ class _ScansPageState extends State<ScansPage> {
 
 class _ScanCard extends StatelessWidget {
   final Map<String, dynamic> row;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
-  const _ScanCard({required this.row, required this.onDelete});
+  const _ScanCard({required this.row, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
     final url = (row['image_url'] ?? '').toString();
-    final cls = (row['predicted_class'] ?? '—').toString();
-    final conf = row['confidence'] as num?;
-    final createdAtStr = row['created_at']?.toString();
-    final dt = createdAtStr != null ? DateTime.tryParse(createdAtStr)?.toLocal() : null;
 
-    return Material(
-      color: Colors.white,
+    return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      elevation: 0,
       child: InkWell(
+        onTap: () {
+          // Navigate to ScanInfoPage
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ScanInfoPage(scan: row),
+            ),
+          );
+        },
         onLongPress: onDelete,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 10, offset: const Offset(0, 4))],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              Expanded(
-                child: url.isEmpty
-                    ? const Center(child: Icon(Icons.broken_image_outlined, color: Colors.black26, size: 40))
-                    : Image.network(
-                  url,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                  errorBuilder: (_, __, ___) => const Center(
-                    child: Icon(Icons.broken_image_outlined, color: Colors.black26, size: 40),
+        child: url.isEmpty
+            ? Container(
+                color: Colors.grey[200],
+                child: const Center(
+                  child: Icon(Icons.broken_image_outlined,
+                      color: Colors.black26, size: 40),
+                ),
+              )
+            : Image.network(
+                url,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                errorBuilder: (_, __, ___) => Container(
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(Icons.broken_image_outlined,
+                        color: Colors.black26, size: 40),
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(cls, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 2),
-                          Text(conf == null ? '—' : '${(conf * 100).toStringAsFixed(0)}%',
-                              style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                        ],
-                      ),
-                    ),
-                    if (dt != null)
-                      Text('${dt.month}/${dt.day}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
