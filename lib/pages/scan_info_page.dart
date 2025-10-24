@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../components/disease_info.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ScanInfoPage extends StatelessWidget {
   final Map<String, dynamic> scan;
@@ -180,6 +181,12 @@ class ScanInfoPage extends StatelessWidget {
                           body: info?.careTips ??
                               'Care tips not available for this class.',
                         ),
+                        const SizedBox(height: 14),
+                        _InfoCard(
+                          title: 'Reference',
+                          body: info?.reference ??
+                              'Reference not available for this class.',
+                        ),
                       ],
                     ),
                   ),
@@ -193,46 +200,86 @@ class ScanInfoPage extends StatelessWidget {
   }
 }
 
-// === Info Card Widget ===
+// === Info Card Widget (Compatible) ===
 class _InfoCard extends StatelessWidget {
   final String title;
   final String body;
-  const _InfoCard({required this.title, required this.body});
+  final String? link; // clickable reference
+
+  const _InfoCard({
+    required this.title,
+    required this.body,
+    this.link,
+  });
+
+  Future<void> _launchURL(BuildContext context, String url) async {
+    try {
+      // canLaunch/launch use a String (older API)
+      if (await canLaunch(url)) {
+        await launch(url);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open link')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error opening link: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: Colors.black87,
-              )),
-          const SizedBox(height: 6),
-          Text(
-            body,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: Colors.black87,
-              height: 1.4,
+    return SizedBox(
+      width: double.infinity,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 4),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Colors.black87,
+                )),
+            const SizedBox(height: 6),
+            Text(
+              body,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.black87,
+                height: 1.4,
+              ),
+            ),
+            if (link != null) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => _launchURL(context, link!),
+                child: Text(
+                  'Source: $link',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.blueAccent,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

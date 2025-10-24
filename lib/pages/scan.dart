@@ -74,6 +74,8 @@ class _ScanPageState extends State<ScanPage> {
     }
   }
 
+  List<Map<String, dynamic>> _detections = [];
+
   Future<void> _detectWithFlask() async {
     if (_picked == null) {
       _toast('Pick an image first.');
@@ -83,6 +85,7 @@ class _ScanPageState extends State<ScanPage> {
     setState(() {
       _uploading = true;
       _annotatedUrl = null;
+      _detections = [];
     });
 
     try {
@@ -97,20 +100,44 @@ class _ScanPageState extends State<ScanPage> {
       if (response.statusCode == 200) {
         final data = json.decode(respStr);
 
-        // Handle YOLOv5 detection result
         if (data['detections'] != null && data['detections'].isNotEmpty) {
-          final best = (data['detections'] as List)
-              .reduce((a, b) => a['confidence'] > b['confidence'] ? a : b);
+          final List detections = data['detections'];
 
           setState(() {
-            _predictionLabel = best['name'] ?? 'Unknown';
-            _confidence = (best['confidence'] as num?)?.toDouble() ?? 0.0;
+            // Convert detections to a simpler form
+            final all = detections.map<Map<String, dynamic>>((det) {
+              return {
+                'name': (det['name'] ?? 'Unknown').toString(),
+                'confidence': (det['confidence'] as num?)?.toDouble() ?? 0.0,
+              };
+            }).toList();
+
+            // --- Group detections by name and average their confidence ---
+            final Map<String, List<double>> grouped = {};
+            for (var det in all) {
+              grouped
+                  .putIfAbsent(det['name']!, () => [])
+                  .add(det['confidence']!);
+            }
+
+            _detections = grouped.entries.map<Map<String, dynamic>>((entry) {
+              final avg =
+                  entry.value.reduce((a, b) => a + b) / entry.value.length;
+              return {'name': entry.key, 'confidence': avg};
+            }).toList();
+
+            // --- Pick top disease (highest average confidence) for summary ---
+            final best = _detections
+                .reduce((a, b) => a['confidence'] > b['confidence'] ? a : b);
+            _predictionLabel = best['name'];
+            _confidence = best['confidence'];
+
+            // --- Annotated bounding-box image ---
             _annotatedUrl = '$FLASK_BASE_URL${data["annotated_url"]}';
           });
 
           _toast(
-            'Detected: $_predictionLabel (${(_confidence! * 100).toStringAsFixed(1)}%)',
-          );
+              'Detected ${_detections.length} objects. Top: $_predictionLabel (${(_confidence! * 100).toStringAsFixed(1)}%)');
         } else {
           _toast('No objects detected.');
         }
@@ -222,20 +249,24 @@ class _ScanPageState extends State<ScanPage> {
                 ),
               ),
             ),
-            if (_predictionLabel != null)
+            if (_detections.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Prediction: $_predictionLabel',
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                    const Text(
+                      'Detected Diseases:',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    if (_confidence != null)
-                      Text(
-                          'Confidence: ${(_confidence! * 100).toStringAsFixed(1)}%',
-                          style: const TextStyle(color: Colors.black54)),
+                    const SizedBox(height: 6),
+                    ..._detections.map((det) => Text(
+                          '- ${det['name']} '
+                          '(${(det['confidence'] * 100).toStringAsFixed(1)}%)',
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.black87),
+                        )),
                   ],
                 ),
               ),
