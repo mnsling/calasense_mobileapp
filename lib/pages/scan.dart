@@ -68,7 +68,6 @@ class _ScanPageState extends State<ScanPage> {
           title: filename,
           relativePath: Platform.isAndroid ? 'Pictures/CalaSense' : null,
         );
-        _toast('Saved to Gallery');
       } catch (e) {
         _toast('Save failed: $e');
       }
@@ -131,41 +130,59 @@ class _ScanPageState extends State<ScanPage> {
       return;
     }
 
-    // First, run detection before upload
+    // Run detection before upload
     await _detectWithFlask();
 
-    // Only continue if detection succeeded
-    if (_predictionLabel == null || _confidence == null) {
+    if (_predictionLabel == null ||
+        _confidence == null ||
+        _annotatedUrl == null) {
       _toast('No detection result found — skipping upload.');
       return;
     }
 
     setState(() => _uploading = true);
     try {
+      // Upload original image
       final ts = DateTime.now().millisecondsSinceEpoch;
       final ext = _picked!.path.split('.').last;
-      final object = 'public/$ts.$ext';
+      final originalObject = 'public/original_$ts.$ext';
 
-      // Upload to Supabase Storage
       await _sb.storage.from('scans').upload(
-            object,
+            originalObject,
             File(_picked!.path),
             fileOptions: const FileOptions(upsert: false),
           );
 
-      final publicUrl = _sb.storage.from('scans').getPublicUrl(object);
+      final originalPublicUrl =
+          _sb.storage.from('scans').getPublicUrl(originalObject);
 
-      // Insert record in Supabase table
+      // Download and upload annotated image
+      final annotatedResponse = await http.get(Uri.parse(_annotatedUrl!));
+      if (annotatedResponse.statusCode != 200) {
+        throw Exception('Failed to download annotated image.');
+      }
+
+      final annotatedObject = 'public/annotated_$ts.jpg';
+      await _sb.storage.from('scans').uploadBinary(
+            annotatedObject,
+            annotatedResponse.bodyBytes,
+            fileOptions: const FileOptions(contentType: 'image/jpeg'),
+          );
+
+      final annotatedPublicUrl =
+          _sb.storage.from('scans').getPublicUrl(annotatedObject);
+
+      // Insert both URLs in Supabase
       await _sb.from('scans').insert({
-        'image_url': publicUrl,
+        'image_url': originalPublicUrl,
+        'annotated_url': annotatedPublicUrl,
         'predicted_class': _predictionLabel,
         'confidence': _confidence,
         'collection_id': widget.collectionId,
       });
 
       if (!mounted) return;
-      _toast('Uploaded to Supabase successfully!');
-      Navigator.pop(context, publicUrl);
+      Navigator.pop(context, annotatedPublicUrl);
     } catch (e) {
       _toast('Upload failed: $e');
     } finally {

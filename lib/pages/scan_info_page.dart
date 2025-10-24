@@ -19,7 +19,7 @@ class ScanInfoPage extends StatelessWidget {
         ? '${(confidenceValue * 100).toStringAsFixed(2)}%'
         : 'N/A';
 
-    final String imageUrl = scan['image_url'] ?? '';
+    final String imageUrl = scan['annotated_url'] ?? '';
 
     // Format date properly (MM/DD/YYYY)
     String formattedDate = 'N/A';
