@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../components/disease_info.dart';
 
 class ScanInfoPage extends StatelessWidget {
   final Map<String, dynamic> scan;
@@ -20,6 +21,8 @@ class ScanInfoPage extends StatelessWidget {
         : 'N/A';
 
     final String imageUrl = scan['annotated_url'] ?? '';
+    // Get disease info
+    final DiseaseInfo? info = diseaseData[predictedClass.toLowerCase()];
 
     // Format date properly (MM/DD/YYYY)
     String formattedDate = 'N/A';
@@ -159,23 +162,23 @@ class ScanInfoPage extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
-                      children: const [
+                      children: [
                         _InfoCard(
-                          title: 'General Information',
-                          body:
-                              'Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry’s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.',
+                          title: info?.title ?? 'General Information',
+                          body: info?.generalInfo ??
+                              'No additional information available for this class.',
                         ),
-                        SizedBox(height: 14),
+                        const SizedBox(height: 14),
                         _InfoCard(
                           title: 'Symptoms',
-                          body:
-                              'Yellow patches on leaves, misshapen fruits, and premature fruit drop.',
+                          body: info?.symptoms ??
+                              'Symptoms data not available for this class.',
                         ),
-                        SizedBox(height: 14),
+                        const SizedBox(height: 14),
                         _InfoCard(
                           title: 'Care Tips',
-                          body:
-                              'Prune affected branches and apply recommended treatments from agricultural experts.',
+                          body: info?.careTips ??
+                              'Care tips not available for this class.',
                         ),
                       ],
                     ),
