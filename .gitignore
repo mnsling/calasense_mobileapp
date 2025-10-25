@@ -39,7 +39,37 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# Android Studio build artifacts
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# --- Python related ---
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+*.pyo
+*.pyd
+*.pdb
+pip-wheel-metadata/
+.pytest_cache/
+.tox/
+.mypy_cache/
+.coverage
+coverage.xml
+
+# --- Node.js / JavaScript related ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- macOS specific ---
+.AppleDouble
+.LSOverride
+
+# --- VSCode optional ---
+# Uncomment if you don’t want any VSCode settings in version control
+# .vscode/
