@@ -1,0 +1,32 @@
+# NORMAL BASELINE
+# train: ../calamansi-dataset/train/images
+# val: ../calamansi-dataset/valid/images
+# test: ../calamansi-dataset/test/images
+
+# NORMAL AUGMENTED
+train: ../calamansi-augmented-dataset/train/images
+val: ../calamansi-augmented-dataset/valid/images
+test: ../calamansi-augmented-dataset/test/images
+
+# b_ DATASET
+# train: ../colorspace-datasets/b_/train/images
+# val: ../colorspace-datasets/b_/valid/images
+# test: ../colorspace-datasets/b_/test/images
+
+# Cr DATASET
+# train: ../colorspace-datasets/Cr/train/images
+# val: ../colorspace-datasets/Cr/valid/images
+# test: ../colorspace-datasets/Cr/test/images
+
+# Cb DATASET
+# train: ../colorspace-datasets/Cb/train/images
+# val: ../colorspace-datasets/Cb/valid/images
+# test: ../colorspace-datasets/Cb/test/images
+
+# Cr DATASET
+# train: ../colorspace-datasets/H/train/images
+# val: ../colorspace-datasets/H/valid/images
+# test: ../colorspace-datasets/H/test/images
+
+nc: 5
+names: ["Black Spot", "Canker", "Greening", "Healthy", "Leaf Miner"]

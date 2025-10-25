@@ -1,0 +1,39 @@
+# YOLOv5 custom hyperparameters for Calamansi leaf disease detection
+# Revised for better performance based on analysis
+
+# Optimizer settings
+optimizer: Adam # Adam optimizer
+lr0: 0.001 # initial learning rate
+lrf: 0.01 # final LR multiplier (lr decays to 1% of lr0)
+weight_decay: 0.0005 # weight decay
+momentum: 0.937 # beta1 for Adam
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+warmup_bias_lr: 0.1
+# Loss function weights (YOLOv5 defaults)
+box: 0.05 # box loss gain
+cls: 0.3 # cls loss gain
+cls_pw: 1.0 # cls BCELoss positive_weight
+obj: 0.7 # obj loss gain (scale with pixels)
+obj_pw: 1.0 # obj BCELoss positive_weight
+iou_t: 0.20 # IoU training threshold
+anchor_t: 4.0 # anchor-multiple threshold
+fl_gamma: 0.0 # focal loss gamma (efficientDet default gamma=1.5)
+# Remove HSV due to different colorspaces
+hsv_h: 0.0 # hue jitter
+hsv_s: 0.0 # saturation jitter
+hsv_v: 0.0 # brightness/value jitter
+# Geometric augmentations
+degrees: 10.0 # rotation ±10°
+translate: 0.1 # 10% translation
+scale: 0.1 # scale jitter
+shear: 2.0 # slight shear
+perspective: 0.0 # no perspective distortion
+# Flipping
+flipud: 0.0 # vertical flip
+fliplr: 0.0 # horizontal flip probability
+# Advanced augmentation
+mosaic: 0.0 # mosaic augmentation probability
+mixup: 0.0 # mixup augmentation probability
+copy_paste: 0.0 # not used
+label_smoothing: 0.01
