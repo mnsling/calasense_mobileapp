@@ -1,0 +1,77 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+build/
+*.so
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio build artifacts
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# --- Python related ---
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+*.pyo
+*.pyd
+*.pdb
+pip-wheel-metadata/
+.pytest_cache/
+.tox/
+.mypy_cache/
+.coverage
+coverage.xml
+
+# --- Node.js / JavaScript related ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- macOS specific ---
+.AppleDouble
+.LSOverride
+
+# --- VSCode optional ---
+# Uncomment if you don’t want any VSCode settings in version control
+# .vscode/
