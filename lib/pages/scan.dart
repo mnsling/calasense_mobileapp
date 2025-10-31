@@ -316,7 +316,11 @@ class _ScanPageState extends State<ScanPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: (_picked == null || _uploading) ? null : _upload,
+                    onPressed: (_picked == null ||
+                            _uploading ||
+                            _predictionLabel == null)
+                        ? null
+                        : _upload,
                     icon: const Icon(Icons.cloud_upload_rounded),
                     label: Text(
                       _uploading ? 'Uploading...' : 'Upload',

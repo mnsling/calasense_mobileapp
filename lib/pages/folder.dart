@@ -38,7 +38,8 @@ class _ScansPageState extends State<ScansPage> {
     try {
       final rows = await _sb
           .from('scans')
-          .select('id,image_url,predicted_class,confidence,created_at')
+          .select(
+              'id,image_url,annotated_url,predicted_class,confidence,created_at')
           .eq('collection_id', widget.collectionId) // collection_id is uuid
           .order('created_at', ascending: false);
 
