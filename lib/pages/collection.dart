@@ -390,9 +390,8 @@ class _CollectionPageState extends State<CollectionPage> {
         child: SafeArea(
           child: Column(
             children: [
-              const SizedBox(height: 30),
+              const SizedBox(height: 10),
               const _CollectionsHeader(),
-              const SizedBox(height: 14),
 
               // Search + Add
               Padding(

@@ -54,11 +54,11 @@ class DashboardPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 30),
+                // 🔽 reduced from 30 → 10
+                const SizedBox(height: 10),
                 const DashboardHeader(),
                 const SizedBox(height: 30),
 
-                // 👇 Scan button now opens ScanPage and awaits result
                 DetectButton(
                   onTap: () async {
                     final url = await Navigator.push(
