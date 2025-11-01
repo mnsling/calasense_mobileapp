@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'folder.dart';
 import 'scan_info_page.dart';
+import '../components/top_snackbar.dart';
 
 class CollectionPage extends StatefulWidget {
   const CollectionPage({super.key});
@@ -54,7 +55,7 @@ class _CollectionPageState extends State<CollectionPage> {
 
       _orphanScans = List<Map<String, dynamic>>.from(pins);
     } catch (e) {
-      _toast('Failed to load: $e');
+      showTopSnackBar(context, 'Failed to load: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -94,8 +95,9 @@ class _CollectionPageState extends State<CollectionPage> {
     try {
       await _sb.from('collections').insert({'name': trimmed});
       await _loadAll();
+      showTopSnackBar(context, 'Folder "$trimmed" created successfully!');
     } catch (e) {
-      _toast('Create failed: $e');
+      showTopSnackBar(context, 'Create failed: $e');
     }
   }
 
@@ -133,13 +135,14 @@ class _CollectionPageState extends State<CollectionPage> {
           .select();
 
       if ((res as List).isEmpty) {
-        _toast('Rename did not match any rows. Check RLS or id.');
+        showTopSnackBar(
+            context, 'Rename did not match any rows. Check RLS or id.');
         return;
       }
 
       await _loadAll();
     } catch (e) {
-      _toast('Rename failed: $e');
+      showTopSnackBar(context, 'Rename failed: $e');
     }
   }
 
@@ -167,13 +170,15 @@ class _CollectionPageState extends State<CollectionPage> {
       final res =
           await _sb.from('collections').delete().eq('id_uuid', idUuid).select();
       if ((res as List).isEmpty) {
-        _toast('Delete did not match any rows. Check RLS or id.');
+        showTopSnackBar(
+            context, 'Delete did not match any rows. Check RLS or id.');
         return;
       }
 
       await _loadAll();
+      showTopSnackBar(context, 'Folder "$name" deleted successfully.');
     } catch (e) {
-      _toast('Delete failed: $e');
+      showTopSnackBar(context, 'Delete failed: $e');
     }
   }
 
@@ -289,7 +294,8 @@ class _CollectionPageState extends State<CollectionPage> {
   Future<void> _pickFolderAndMove() async {
     if (_selectedPinIds.isEmpty) return;
 
-    final chosenId = await showModalBottomSheet(
+    // 📂 Open bottom sheet to pick folder (return both id and name)
+    final chosen = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -299,25 +305,29 @@ class _CollectionPageState extends State<CollectionPage> {
       builder: (ctx) => _FolderPickerSheet(collections: _collections),
     );
 
-    if (chosenId == null) return;
+    if (chosen == null) return; // user canceled
 
-    // Debug: confirm we really got a UUID
-    // print('chosenId => $chosenId');
+    final chosenId = chosen['id'];
+    final chosenName = chosen['name'];
 
     final ids = _selectedPinIds.toList();
     final inValue = '(${ids.map((e) => e is String ? '"$e"' : e).join(',')})';
 
     try {
-      await _sb.from('scans').update(
-              {'collection_id': chosenId}) // chosenId must be a real id_uuid
-          .filter('id', 'in', inValue);
+      await _sb
+          .from('scans')
+          .update({'collection_id': chosenId}).filter('id', 'in', inValue);
 
       _orphanScans.removeWhere((r) => ids.contains(r['id']));
       _selectedPinIds.clear();
       _toggleSelectionMode(false);
       if (mounted) setState(() {});
+
+      // ✅ Show folder name in snackbar
+      showTopSnackBar(context,
+          '${ids.length} pin${ids.length == 1 ? '' : 's'} moved to folder "$chosenName".');
     } catch (e) {
-      _toast('Move failed: $e');
+      showTopSnackBar(context, 'Move failed: $e');
     }
   }
 
@@ -350,8 +360,10 @@ class _CollectionPageState extends State<CollectionPage> {
       _selectedPinIds.clear();
       _toggleSelectionMode(false);
       if (mounted) setState(() {});
+      showTopSnackBar(
+          context, '${ids.length} pin${ids.length == 1 ? '' : 's'} deleted.');
     } catch (e) {
-      _toast('Delete failed: $e');
+      showTopSnackBar(context, 'Delete failed: $e');
     }
   }
 
@@ -903,48 +915,33 @@ class _NewFolderSheetState extends State<_NewFolderSheet> {
 
 class _FolderPickerSheet extends StatelessWidget {
   final List<Map<String, dynamic>> collections;
+
   const _FolderPickerSheet({required this.collections});
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.5,
-      minChildSize: 0.35,
-      maxChildSize: 0.9,
-      builder: (_, controller) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-        child: Column(
-          children: [
-            Container(
-                height: 4,
-                width: 42,
-                decoration: BoxDecoration(
-                    color: Colors.black26,
-                    borderRadius: BorderRadius.circular(4))),
-            const SizedBox(height: 10),
-            Text('Move to folder',
-                style: GoogleFonts.poppins(
-                    fontSize: 16, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView.builder(
-                controller: controller,
-                itemCount: collections.length,
-                itemBuilder: (_, i) {
-                  final row = collections[i];
-                  return ListTile(
-                    leading: const Icon(Icons.folder_rounded,
-                        color: Color(0xFF2F7D32)),
-                    title: Text(row['name'] ?? ''),
-                    // IMPORTANT: return the UUID exactly as stored
-                    onTap: () => Navigator.pop(context, row['id_uuid']),
-                  );
-                },
-              ),
+    return SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'Move to Folder',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-          ],
-        ),
+          ),
+          ...collections.map((c) => ListTile(
+                leading: const Icon(Icons.folder),
+                title: Text(c['name']),
+                onTap: () {
+                  Navigator.pop(context, {
+                    'id': c['id_uuid'] ?? c['id'], // depends on your schema
+                    'name': c['name'],
+                  });
+                },
+              )),
+        ],
       ),
     );
   }

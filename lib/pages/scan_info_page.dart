@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../components/disease_info.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 
 class ScanInfoPage extends StatelessWidget {
   final Map<String, dynamic> scan;
@@ -136,18 +138,52 @@ class ScanInfoPage extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.topCenter, // gives a bounded width
                         child: imageUrl.isNotEmpty
-                            ? Image.network(
-                                imageUrl,
-                                fit: BoxFit.fitWidth,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey[300],
-                                    alignment: Alignment.center,
-                                    height: 200,
-                                    child: const Icon(Icons.broken_image,
-                                        size: 40, color: Colors.grey),
+                            ? GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => Scaffold(
+                                        backgroundColor: Colors.black,
+                                        appBar: AppBar(
+                                          backgroundColor: Colors.black,
+                                          iconTheme: const IconThemeData(
+                                              color: Colors.white),
+                                        ),
+                                        body: Center(
+                                          child: PhotoView(
+                                            imageProvider:
+                                                NetworkImage(imageUrl),
+                                            backgroundDecoration:
+                                                const BoxDecoration(
+                                                    color: Colors.black),
+                                            minScale: PhotoViewComputedScale
+                                                .contained,
+                                            maxScale:
+                                                PhotoViewComputedScale.covered *
+                                                    3,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   );
                                 },
+                                child: Hero(
+                                  tag: 'zoomImage',
+                                  child: Image.network(
+                                    imageUrl,
+                                    fit: BoxFit.fitWidth,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: Colors.grey[300],
+                                        alignment: Alignment.center,
+                                        height: 200,
+                                        child: const Icon(Icons.broken_image,
+                                            size: 40, color: Colors.grey),
+                                      );
+                                    },
+                                  ),
+                                ),
                               )
                             : Image.asset(
                                 'assets/sample_leaf.jpg',

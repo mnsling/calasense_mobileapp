@@ -16,6 +16,7 @@ dependencies:
   image_picker: ^1.0.7
   permission_handler: ^11.3.1
   photo_manager: ^3.2.1 # <-- add this
+  photo_view: ^0.15.0
 
 dev_dependencies:
   flutter_test:

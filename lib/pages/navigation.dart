@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// import your tab pages
-import 'dashboard.dart';   // Home
-import 'collection.dart';  // Collection
-import 'scan.dart';        // Scan
+import 'dashboard.dart'; // Home
+import 'collection.dart'; // Collection
+import 'scan.dart'; // Scan
 
 class MainNavPage extends StatefulWidget {
   const MainNavPage({super.key});
@@ -20,23 +18,20 @@ class _MainNavPageState extends State<MainNavPage> {
   int current = 0;
 
   final _pages = const [
-    DashboardPage(),   // Home
-    CollectionPage(),  // Collection
+    DashboardPage(), // Home
+    CollectionPage(), // Collection
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: IndexedStack(
         index: current,
         children: _pages,
       ),
-
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: const _ScanFab(),
-
       bottomNavigationBar: BottomAppBar(
         color: barBg,
         elevation: 4,

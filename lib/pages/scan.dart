@@ -9,6 +9,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart'; // <-- Flask URL here
+import '../components/top_snackbar.dart';
 
 const _brand = Color(0xFF2F7D32);
 
@@ -34,14 +35,15 @@ class _ScanPageState extends State<ScanPage> {
     if (src == ImageSource.camera) {
       final cam = await Permission.camera.request();
       if (!cam.isGranted) {
-        _toast('Camera permission denied');
+        showTopSnackBar(context, 'Camera permission denied');
         return;
       }
     }
 
     final pmState = await PhotoManager.requestPermissionExtend();
     if (!pmState.isAuth && !pmState.hasAccess) {
-      _toast('Photos permission denied. Please allow in Settings.');
+      showTopSnackBar(
+          context, 'Photos permission denied. Please allow in Settings.');
       await PhotoManager.openSetting();
       return;
     }
@@ -69,7 +71,7 @@ class _ScanPageState extends State<ScanPage> {
           relativePath: Platform.isAndroid ? 'Pictures/CalaSense' : null,
         );
       } catch (e) {
-        _toast('Save failed: $e');
+        showTopSnackBar(context, 'Save failed: $e');
       }
     }
   }
@@ -78,7 +80,7 @@ class _ScanPageState extends State<ScanPage> {
 
   Future<void> _detectWithFlask() async {
     if (_picked == null) {
-      _toast('Pick an image first.');
+      showTopSnackBar(context, 'Pick an image first.');
       return;
     }
 
@@ -136,16 +138,16 @@ class _ScanPageState extends State<ScanPage> {
             _annotatedUrl = '$FLASK_BASE_URL${data["annotated_url"]}';
           });
 
-          _toast(
+          showTopSnackBar(context,
               'Detected ${_detections.length} objects. Top: $_predictionLabel (${(_confidence! * 100).toStringAsFixed(1)}%)');
         } else {
-          _toast('No objects detected.');
+          showTopSnackBar(context, 'No objects detected.');
         }
       } else {
-        _toast('Detection failed: ${response.statusCode}');
+        showTopSnackBar(context, 'Detection failed: ${response.statusCode}');
       }
     } catch (e) {
-      _toast('Error: $e');
+      showTopSnackBar(context, 'Error: $e');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -153,23 +155,19 @@ class _ScanPageState extends State<ScanPage> {
 
   Future<void> _upload() async {
     if (_picked == null) {
-      _toast('Pick an image first.');
+      showTopSnackBar(context, 'Pick an image first.');
       return;
     }
-
-    // Run detection before upload
-    await _detectWithFlask();
 
     if (_predictionLabel == null ||
         _confidence == null ||
         _annotatedUrl == null) {
-      _toast('No detection result found — skipping upload.');
+      showTopSnackBar(context, 'Please detect a disease before uploading.');
       return;
     }
 
     setState(() => _uploading = true);
     try {
-      // Upload original image
       final ts = DateTime.now().millisecondsSinceEpoch;
       final ext = _picked!.path.split('.').last;
       final originalObject = 'public/original_$ts.$ext';
@@ -183,7 +181,6 @@ class _ScanPageState extends State<ScanPage> {
       final originalPublicUrl =
           _sb.storage.from('scans').getPublicUrl(originalObject);
 
-      // Download and upload annotated image
       final annotatedResponse = await http.get(Uri.parse(_annotatedUrl!));
       if (annotatedResponse.statusCode != 200) {
         throw Exception('Failed to download annotated image.');
@@ -199,7 +196,6 @@ class _ScanPageState extends State<ScanPage> {
       final annotatedPublicUrl =
           _sb.storage.from('scans').getPublicUrl(annotatedObject);
 
-      // Insert both URLs in Supabase
       await _sb.from('scans').insert({
         'image_url': originalPublicUrl,
         'annotated_url': annotatedPublicUrl,
@@ -209,9 +205,17 @@ class _ScanPageState extends State<ScanPage> {
       });
 
       if (!mounted) return;
+
+      // ✅ Clear any previous snackbars (e.g., “Image uploaded to scans”)
+      ScaffoldMessenger.of(context).clearSnackBars();
+
+      // ✅ Show only your custom message
+      showTopSnackBar(context, 'Uploaded to collections successfully!');
+
       Navigator.pop(context, annotatedPublicUrl);
     } catch (e) {
-      _toast('Upload failed: $e');
+      ScaffoldMessenger.of(context).clearSnackBars();
+      showTopSnackBar(context, 'Upload failed: $e');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }

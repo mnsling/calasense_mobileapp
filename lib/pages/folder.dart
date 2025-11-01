@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'scan_info_page.dart';
+import '../components/top_snackbar.dart';
 
 class ScansPage extends StatefulWidget {
   /// Use dynamic so it works for uuid String (recommended) or int.
@@ -46,7 +47,7 @@ class _ScansPageState extends State<ScansPage> {
       if (!mounted) return;
       setState(() => _items = List<Map<String, dynamic>>.from(rows));
     } catch (e) {
-      _toast('Load failed: $e');
+      showTopSnackBar(context, 'Load failed: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -133,7 +134,8 @@ class _ScansPageState extends State<ScansPage> {
           .select();
 
       if ((res as List).isEmpty) {
-        _toast('Rename did not match any rows. Check RLS or id.');
+        showTopSnackBar(
+            context, 'Rename did not match any rows. Check RLS or id.');
         return;
       }
 
@@ -142,9 +144,9 @@ class _ScansPageState extends State<ScansPage> {
         _title = trimmed;
         _dirty = true;
       });
-      _toast('Folder renamed');
+      showTopSnackBar(context, 'Folder renamed');
     } catch (e) {
-      _toast('Rename failed: $e');
+      showTopSnackBar(context, 'Rename failed: $e');
     }
   }
 
@@ -176,13 +178,14 @@ class _ScansPageState extends State<ScansPage> {
           .eq('id_uuid', widget.collectionId)
           .select();
       if ((res as List).isEmpty) {
-        _toast('Delete did not match any rows. Check RLS or id.');
+        showTopSnackBar(
+            context, 'Delete did not match any rows. Check RLS or id.');
         return;
       }
       if (!mounted) return;
       Navigator.pop(context, true); // refresh parent
     } catch (e) {
-      _toast('Delete failed: $e');
+      showTopSnackBar(context, 'Delete failed: $e');
     }
   }
 
@@ -314,8 +317,11 @@ class _ScansPageState extends State<ScansPage> {
                         ? const Center(child: CircularProgressIndicator())
                         : _items.isEmpty
                             ? const Center(
-                                child: Text('No scans yet.',
-                                    style: TextStyle(color: Colors.black54)))
+                                child: Text(
+                                  'No scans yet.',
+                                  style: TextStyle(color: Colors.black54),
+                                ),
+                              )
                             : GridView.builder(
                                 padding:
                                     const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -327,10 +333,31 @@ class _ScansPageState extends State<ScansPage> {
                                   childAspectRatio: .9,
                                 ),
                                 itemCount: _items.length,
-                                itemBuilder: (_, i) => _ScanCard(
-                                  row: _items[i],
-                                  onDelete: () => _deleteScan(_items[i]['id']),
-                                ),
+                                itemBuilder: (_, i) {
+                                  final row = _items[i];
+                                  final imageUrl =
+                                      (row['image_url'] ?? '').toString();
+
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors
+                                          .white, // ✅ white background for each box
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black12,
+                                          blurRadius: 4,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: _ScanCard(
+                                      row: row,
+                                      onDelete: () => _deleteScan(row['id']),
+                                    ),
+                                  );
+                                },
                               ),
                   ),
                 ),
